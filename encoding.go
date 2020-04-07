@@ -1,3 +1,5 @@
+// Utility functions for serializing G1 G2 points and scalars.
+
 package eip2537
 
 import bls12381 "github.com/kilic/bls12-381"
@@ -65,17 +67,17 @@ func decodeG2Point(g *bls12381.G2, in []byte) (*bls12381.PointG2, error) {
 }
 
 func encodeG1Point(g *bls12381.G1, p *bls12381.PointG1) []byte {
-	outRaw := g.ToUncompressed(p)
+	outRaw := g.ToBytes(p)
 	out := make([]byte, 128)
 	// encode x
 	copy(out[16:], outRaw[:48])
 	// encode y
-	copy(out[64:], outRaw[48:])
+	copy(out[64+16:], outRaw[48:])
 	return out
 }
 
 func encodeG2Point(g *bls12381.G2, p *bls12381.PointG2) []byte {
-	outRaw := g.ToUncompressed(p)
+	outRaw := g.ToBytes(p)
 	out := make([]byte, 256)
 	// Encode x
 	copy(out[16:16+48], outRaw[:48])

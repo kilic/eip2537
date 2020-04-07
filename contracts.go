@@ -371,13 +371,19 @@ func runBLS12381MAPPING(in []byte) ([]byte, error) {
 
 	if len(in) == 64 {
 
-		// Do mapping at G1
+		// Do mapping to G1
+
+		// Decode input field element
+		fe, err := decodeFieldElement(in)
+		if err != nil {
+			return nil, err
+		}
 
 		// Initialize G1
 		g := bls12381.NewG1()
 
 		// Compute mapping
-		r, err := g.MapToPointSWU(in)
+		r, err := g.MapToPointSWU(fe)
 		if err != nil {
 			return nil, err
 		}
@@ -387,13 +393,26 @@ func runBLS12381MAPPING(in []byte) ([]byte, error) {
 
 	} else if len(in) == 128 {
 
-		// Do mapping at G2
+		// Do mapping to G2
+
+		// Decode input field element
+		fe := make([]byte, 96)
+		c0, err := decodeFieldElement(in[:64])
+		if err != nil {
+			return nil, err
+		}
+		copy(fe[:48], c0)
+		c1, err := decodeFieldElement(in[64:])
+		if err != nil {
+			return nil, err
+		}
+		copy(fe[48:], c1)
 
 		// Initialize G2
 		g := bls12381.NewG2(nil)
 
 		// Compute mapping
-		r, err := g.MapToPointSWU(in)
+		r, err := g.MapToPointSWU(fe)
 		if err != nil {
 			return nil, err
 		}

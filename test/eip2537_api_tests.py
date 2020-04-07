@@ -70,22 +70,31 @@ def encode_scalar(e):
 
 
 # encode 48 bytes field to element to 64 bytes
-def encode_field_element(fe: FQ):
-  return "{0:0{1}x}".format(fe.n, 128)
+def encode_field_element(fe):
+  padded = "{0:0{1}x}"
+  if hasattr(fe, 'n'):
+    return padded.format(fe.n, 128)
+  return padded.format(fe, 128)
 
 
 # encodes field elements into larger byte string than expected
-def bad_encode_field_element_large(fe: FQ):
-  return "{0:0{1}x}".format(fe.n, 130)
+def bad_encode_field_element_large(fe):
+  padded = "{0:0{1}x}"
+  if hasattr(fe, 'n'):
+    return padded.format(fe.n, 130)
+  return padded.format(fe, 130)
 
 
 # encodes field elements into shorter byte string than expected
-def bad_encode_field_element_short(fe: FQ):
-  return "{0:0{1}x}".format(fe.n, 126)
+def bad_encode_field_element_short(fe):
+  padded = "{0:0{1}x}"
+  if hasattr(fe, 'n'):
+    return padded.format(fe.n, 126)
+  return padded.format(fe, 126)
 
 
 # encodes field element violating zero top bytes (top 16 bytes must be zeros)
-def bad_encode_field_element_top_bytes(fe: FQ):
+def bad_encode_field_element_top_bytes(fe):
   return "{2:0{3}x}{0:0{1}x}".format(10, 96, 1, 32)
 
 
@@ -93,7 +102,6 @@ def bad_encode_field_element_top_bytes(fe: FQ):
 def encode_g1_point(point):
   if point is INFINITY1:
     return infinity_g1_encoded
-  print(point)
   x = encode_field_element(point[0])
   y = encode_field_element(point[1])
   return [x, y]
@@ -201,6 +209,7 @@ def bad_encode_g2_point_scalar_pair_large(p, e):
 # encodes g2 point and scalar value pair violating zero top bytes of a field element
 def bad_encode_g2_point_scalar_pair_top_bytes(p, e):
   return bad_encode_g2_point_top_bytes(p) + [encode_scalar(e)]
+
 
 # encodes a g2 point that does not satisfy curve equation
 def encode_g2_point_not_on_curve():
@@ -717,9 +726,9 @@ def gen_G2MULTIEXP_tests():
   acc_result = INFINITY2
   acc_input = []
   for p, e in zip(bases, scalars):
-    acc_result = add(multiply(p, e), acc_result)
+    x = multiply(p, e)
+    acc_result = add(x, acc_result)
     acc_input = acc_input + encode_g2_point_scalar_pair(p, e)
-  print(acc_input)
   inputs = acc_input
   expected = encode_g2_point(acc_result)
   vectors.append(make_vector(inputs, expected, name))
@@ -748,7 +757,7 @@ def gen_G2MULTIEXP_tests():
   return
 
 
-# generates G2MUL fail tests
+# generates G2MULTIEXP fail tests
 def gen_G2MULTIEXP_fail_tests():
   vectors = []
 
@@ -794,42 +803,89 @@ def gen_G2MULTIEXP_fail_tests():
   return
 
 
+# generates mapping to curve test vectors
+# vectors are taken from ietf hash to curve draft version
+# G.9.2.  BLS12381G1_XMD:SHA-256_SSWU_NU_
+# https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-G.9.2
+def gen_MAPPING_tests():
+  vectors = []
+
+  # 1
+  # G1 expected
+  name = "bls_g1mapping_expected"
+  inputs = [
+      encode_field_element(
+          0x0ccb6bda9b602ab82aae21c0291623e2f639648a6ada1c76d8ffb664130fd18d98a2cc6160624148827a9726678e7cd4
+      )
+  ]
+  expected = [
+      encode_field_element(
+          0x115281bd55a4103f31c8b12000d98149598b72e5da14e953277def263a24bc2e9fd8fa151df73ea3800f9c8cbb9b245c
+      ),
+      encode_field_element(
+          0x0796506faf9edbf1957ba8d667a079cab0d3a37e302e5132bd25665b66b26ea8556a0cfb92d6ae2c4890df0029b455ce
+      )
+  ]
+  vectors.append(make_vector(inputs, expected, name))
+
+  # 2
+  # G2 expected
+  name = "bls_g2mapping_expected"
+  inputs = [
+      encode_field_element(
+          0x094376a68cdc8f64bd981d59bf762f9b2960df6b135f6e09ceada2fe8d0000bbf04023492796c09f8ef04016a2e8365f
+      ),
+      encode_field_element(
+          0x09367e3b485dda3925e82cc458e5009051281d3e442e94f9ef9feec44ee26375d6dc904dc1aa1f831f2aebd7b437ad12
+      ),
+  ]
+  expected = [
+      encode_field_element(
+          0x04264ddf941f7c9ea5ad62027c72b194c6c3f62a92fcdb56ddc9de7990489af1f81c576e7f451c2cd416102253e040f0
+      ),
+      encode_field_element(
+          0x170919c7845a9e623cef297e17484606a3eb2ae21ed8a21ff2b258861daefa3ac36955c0b374c6f4925868920d9c5f0b
+      ),
+      encode_field_element(
+          0x02d03d852629f70563e3a653ccc2e114439f551a2fd87c8136eb205b84e22c3f40507beccdcdc52c921b69a57968ec7c
+      ),
+      encode_field_element(
+          0x0ce03abe6c55ff0640b2b303440d88bd1a2b0cbfe3274b2802c1f58b1085e4dd8795c9c4d9c166d2f033e3c438e7f8a9
+      ),
+  ]
+  vectors.append(make_vector(inputs, expected, name))
+
+  print("---------\nMAPPING\n---------\n")
+  for v in vectors:
+    print(v)
+
+  return
+
+
 def generate_vectors():
   print("eip2537 test vectors\n")
 
-  # gen_G1ADD_tests()
-  # gen_G1MUL_tests()
-  # gen_G1MULTIEXP_tests()
+#   gen_G1ADD_tests()
+#   gen_G1MUL_tests()
+#   gen_G1MULTIEXP_tests()
 
-  # gen_G1ADD_fail_tests()
-  # gen_G1MUL_fail_tests()
-  # gen_G1MULTIEXP_fail_tests()
+#   gen_G1ADD_fail_tests()
+#   gen_G1MUL_fail_tests()
+#   gen_G1MULTIEXP_fail_tests()
 
-  # gen_G2ADD_tests()
-  # gen_G2MUL_tests()
-  # gen_G2MULTIEXP_tests()
+#   gen_G2ADD_tests()
+#   gen_G2MUL_tests()
+#   gen_G2MULTIEXP_tests()
 
-  gen_G2ADD_fail_tests()
-  gen_G2MUL_fail_tests()
-  gen_G2MULTIEXP_fail_tests()
+#   gen_G2ADD_fail_tests()
+#   gen_G2MUL_fail_tests()
+#   gen_G2MULTIEXP_fail_tests()
+  gen_MAPPING_tests()
 
+  return
+  
 
 generate_vectors()
 
-# print(g1_point_not_on_curve())
 
-# def map_to_g2(raw_hash: FQ2) -> G2Point:
-#     one = FQ2.one()
-#     x = raw_hash
-#     while True:
-#         y = x*x*x + b2
-#         y = sqrt(y)
-#         if y is not None:
-#             break
-#         x += one
-#     h = multiply((x, y, one), COFACTOR_G2)
-#     assert is_on_curve(h, b2)
-#     return h
-
-# def subgroup_check()
-#   pass
+print(a)

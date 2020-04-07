@@ -11,7 +11,7 @@ import (
 )
 
 // PrecompiledContractsBerlinOnly contains the set of pre-compiled contracts
-//  which are considered to be added with Berlin HF
+// which are considered to be added in Berlin HF.
 var PrecompiledContractsBerlinOnly = map[common.Address]vm.PrecompiledContract{
 	common.BytesToAddress([]byte{0x0a}): &bls12381G1ADD{},
 	common.BytesToAddress([]byte{0x0b}): &bls12381G1MUL{},
@@ -39,7 +39,7 @@ func (c *bls12381G1ADD) Run(input []byte) ([]byte, error) {
 // > Output is an encoding of addition operation result - single G1 point (`128` bytes).
 func runBLS12381G1ADD(in []byte) ([]byte, error) {
 	if len(in) != 256 {
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 	var err error
 	var p0, p1 *bls12381.PointG1
@@ -81,7 +81,7 @@ func (c *bls12381G1MUL) Run(input []byte) ([]byte, error) {
 // > Output is an encoding of multiplication operation result - single G1 point (`128` bytes).
 func runBLS12381G1MUL(in []byte) ([]byte, error) {
 	if len(in) != 160 {
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 	var err error
 	var p0 *bls12381.PointG1
@@ -122,7 +122,7 @@ func (c *bls12381G1MULTIEXP) Run(input []byte) ([]byte, error) {
 func runG1MULTIEXP(in []byte) ([]byte, error) {
 	k := len(in) / 160
 	if len(in) != k*160 || k == 0 {
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 	var err error
 	points := make([]*bls12381.PointG1, k)
@@ -168,7 +168,7 @@ func (c *bls12381G2ADD) Run(input []byte) ([]byte, error) {
 // > Output is an encoding of addition operation result - single G2 point (`256` bytes).
 func runBLS12381G2ADD(in []byte) ([]byte, error) {
 	if len(in) != 512 {
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 	var err error
 	var p0, p1 *bls12381.PointG2
@@ -210,7 +210,7 @@ func (c *bls12381G2MUL) Run(input []byte) ([]byte, error) {
 // > Output is an encoding of multiplication operation result - single G2 point (`256` bytes).
 func runBLS12381G2MUL(in []byte) ([]byte, error) {
 	if len(in) != 288 {
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 	var err error
 	var p0 *bls12381.PointG2
@@ -251,7 +251,7 @@ func (c *bls12381G2MULTIEXP) Run(input []byte) ([]byte, error) {
 func runBLSG2MULTIEXP(in []byte) ([]byte, error) {
 	k := len(in) / 288
 	if len(in) != k*288 || k == 0 {
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 	var err error
 	points := make([]*bls12381.PointG2, k)
@@ -302,7 +302,7 @@ func runBLS381PAIRING(in []byte) ([]byte, error) {
 	L := 384
 	k := len(in) / L
 	if len(in) != k*L || k == 0 {
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 
 	// Initialize BLS12-381 pairing engine
@@ -328,10 +328,10 @@ func runBLS381PAIRING(in []byte) ([]byte, error) {
 		// 'point is on curve' check already done,
 		// Here we need to apply subgroup checks.
 		if !g1.InCorrectSubgroup(p1) {
-			return nil, POINT_G1_SUBGROUP
+			return nil, errBLS12381G1PointSubgroup
 		}
 		if !g2.InCorrectSubgroup(p2) {
-			return nil, POINT_G2_SUBGROUP
+			return nil, errBLS12381G2PointSubgroup
 		}
 
 		// Add G1, G2 point pair to the pairing engine.
@@ -404,6 +404,6 @@ func runBLS12381MAPPING(in []byte) ([]byte, error) {
 
 		// Unrecognized or null input size
 
-		return nil, INPUT_LENGHT_ABI
+		return nil, errBLS12381InvalidInputLength
 	}
 }

@@ -2,15 +2,20 @@
 
 package eip2537
 
-import bls12381 "github.com/kilic/bls12-381"
+import (
+	"errors"
+
+	bls12381 "github.com/kilic/bls12-381"
+)
 
 func decodeFieldElement(in []byte) ([]byte, error) {
 	if len(in) != 64 {
-		return nil, INPUT_LENGHT_POINT_FE
+		return nil, errors.New("invalid field element length")
 	}
+	// check top bytes
 	for i := 0; i < 16; i++ {
 		if in[i] != byte(0x00) {
-			return nil, FIELD_ELEMENT_TOP_ZEROS
+			return nil, errBLS12381InvalidFieldElementTopBytes
 		}
 	}
 	out := make([]byte, 48)
@@ -20,7 +25,7 @@ func decodeFieldElement(in []byte) ([]byte, error) {
 
 func decodeG1Point(g *bls12381.G1, in []byte) (*bls12381.PointG1, error) {
 	if len(in) != 128 {
-		return nil, INPUT_LENGHT_POINT_G1
+		return nil, errors.New("invalid g1 point length")
 	}
 	pointBytes := make([]byte, 96)
 	// Decode x
@@ -40,7 +45,7 @@ func decodeG1Point(g *bls12381.G1, in []byte) (*bls12381.PointG1, error) {
 
 func decodeG2Point(g *bls12381.G2, in []byte) (*bls12381.PointG2, error) {
 	if len(in) != 256 {
-		return nil, INPUT_LENGHT_POINT_G2
+		return nil, errors.New("invalid g2 point length")
 	}
 	pointBytes := make([]byte, 192)
 	x0Bytes, err := decodeFieldElement(in[:64])

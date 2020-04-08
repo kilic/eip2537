@@ -1250,29 +1250,29 @@ def gen_PAIRING_fail_test():
 def generate_vectors():
   print("eip2537 test vectors\n")
 
-  # gen_G1ADD_tests()
-  # gen_G1ADD_fail_tests()
+  gen_G1ADD_tests()
+  gen_G1ADD_fail_tests()
 
-  # gen_G1MUL_tests()
+  gen_G1MUL_tests()
   gen_G1MUL_fail_tests()
 
-  # gen_G1MULTIEXP_tests()
-  # gen_G1MULTIEXP_fail_tests()
+  gen_G1MULTIEXP_tests()
+  gen_G1MULTIEXP_fail_tests()
 
-  # gen_G2ADD_tests()
-  # gen_G2ADD_fail_tests()
+  gen_G2ADD_tests()
+  gen_G2ADD_fail_tests()
 
-  # gen_G2MUL_tests()
-  # gen_G2MUL_fail_tests()
+  gen_G2MUL_tests()
+  gen_G2MUL_fail_tests()
 
-  # gen_G2MULTIEXP_tests()
-  # gen_G2MULTIEXP_fail_tests()
+  gen_G2MULTIEXP_tests()
+  gen_G2MULTIEXP_fail_tests()
 
-  # gen_PAIRING_tests()
-  # gen_PAIRING_fail_test()
+  gen_PAIRING_tests()
+  gen_PAIRING_fail_test()
 
-  # gen_MAPPING_tests()
-  # gen_MAPPING_fail_tests()
+  gen_MAPPING_tests()
+  gen_MAPPING_fail_tests()
 
   return
 

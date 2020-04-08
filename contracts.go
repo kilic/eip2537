@@ -342,7 +342,7 @@ func runBLS381PAIRING(in []byte) ([]byte, error) {
 
 	// Compute pairing and set the result
 	if e.Check() {
-		out[0] = 1
+		out[31] = 1
 	}
 	return out, nil
 }

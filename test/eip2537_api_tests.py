@@ -7,6 +7,7 @@ Prints of vectors follows Go syntax.
 '''
 
 from py_ecc.bls12_381 import G1, G2, add, multiply, FQ, FQ2, Z1 as INFINITY1, Z1 as INFINITY2, curve_order, is_on_curve, b, b2, field_modulus, neg
+from py_ecc.utils import prime_field_inv as inv
 
 # encoded g1 point at infility
 infinity_g1_encoded = 2 * ["{0:0{1}x}".format(0, 128)]
@@ -20,7 +21,7 @@ ZERO64 = "{0:0{1}x}".format(0, 128)
 ZERO96 = "{0:0{1}x}".format(0, 192)
 ZERO128 = "{0:0{1}x}".format(0, 256)
 ZERO256 = "{0:0{1}x}".format(0, 512)
-ONE32 = "{0:0{1}x}".format(1, 32)
+ONE32 = "{0:0{1}x}".format(1, 64)
 
 
 # return invalid g1 point
@@ -53,13 +54,102 @@ def modulus():
   return field_modulus
 
 
-#
-'''
+# subgroup check g1
+def g1_is_in_correct_subgroup(p):
+  return multiply(p, curve_order) is INFINITY1
 
-Expected Errors 
-'errBLS12381_XXX_'
 
-'''
+# subgroup check g2
+def g2_is_in_correct_subgroup(p):
+  return multiply(p, curve_order) is INFINITY2
+
+
+# return g1 point that is on curve but not in correct subgroup
+def g1_point_not_in_correct_subgroup():
+  one = FQ.one()
+  x = FQ.one()
+
+  # expected point
+  # (4, 1630892974828014537729259858097113969650871260980656934049590190201941782487224876496582135785777461178964897591404)
+  while True:
+    y = x * x * x + b
+    y = sqrt1(y)
+    if y is not None:
+      p = (x, y)
+      assert is_on_curve(p, b)
+      assert g1_is_in_correct_subgroup((x, y)) is False
+      return p
+    x += one
+
+
+# return g2 point that is on curve but not in correct subgroup
+def g2_point_not_in_correct_subgroup():
+  one = FQ2.one()
+  x = FQ2.one()
+  # expected point
+  # ((2, 0), (188995492400578496451910581292546059920654572609832469388872107051048741028892423057992033888655218419282460458611, 434381874456081807472298918693162486998243066160460423017297172308631992219110538691921044767658182807847155297615))
+  while True:
+    y = x * x * x + b2
+    y = sqrt2(y)
+    if y is not None:
+      p = (x, y)
+      assert is_on_curve(p, b2)
+      assert g2_is_in_correct_subgroup(p) is False
+      return p
+    x += one
+
+
+# Constants that we need for calculating square root
+P = field_modulus
+P_MINUS3_OVER4 = ((P - 3) * inv(4, P)) % P
+P_MINUS1_OVER2 = ((P - 1) * inv(2, P)) % P
+P_PLUS1_OVER4 = ((P + 1) * inv(4, P)) % P
+
+
+# returns a for given a ** 2 if such fq element exists otherwise return None
+# https://eprint.iacr.org/2012/685.pdf
+# algoritm 2
+def sqrt1(a):
+  x = a**P_PLUS1_OVER4
+  return x if x * x == a else None
+
+
+# test sqrt 2
+def test_sqrt1():
+  a0 = FQ(7)
+  aa = a0 * a0
+  a1 = sqrt1(aa)
+  assert aa == a1 * a1
+
+
+# returns a for given a ** 2 if such fq2 element exists otherwise return None
+# https://eprint.iacr.org/2012/685.pdf
+# algoritm 9
+def sqrt2(a):
+  a1 = a**P_MINUS3_OVER4
+  alpha = a1 * a1 * a
+  x0 = a1 * a
+  if alpha == FQ2([-1, 0]):
+    return FQ2((x0.coeffs[1], x0.coeffs[0]))
+  alpha = alpha + FQ2.one()
+  alpha = alpha**P_MINUS1_OVER2
+  x = alpha * x0
+  return x if x * x == a else None
+
+
+# test sqrt 1
+def test_sqrt2():
+  a0 = FQ2([field_modulus - 10, field_modulus - 11])
+  aa = a0 * a0
+  a1 = sqrt2(aa)
+  assert aa == a1 * a1
+
+
+# test sqrt implementations above
+test_sqrt1()
+test_sqrt2()
+
+# Expected Errors 'errBLS12381_XXX_'
 
 # msg : "invalid input length"
 ERROR_INVALID_INPUT_LENGHT = "errBLS12381InvalidInputLength"
@@ -68,16 +158,15 @@ ERROR_FIELD_ELEMENT_TOP_BYTES = "errBLS12381InvalidFieldElementTopBytes"
 # msg : "invalid field element"
 ERROR_INVALID_FIELD_ELEMENT = "errBLS12381InvalidFieldElement"
 # msg : "point is not on curve"
-POINT_G1_IS_NOT_ON_CURVE = "errBLS12381G1PointIsNotOnCurve"
+ERROR_POINT_G1_IS_NOT_ON_CURVE = "errBLS12381G1PointIsNotOnCurve"
 # msg : "point is not on curve"
-POINT_G2_IS_NOT_ON_CURVE = "errBLS12381G2PointIsNotOnCurve"
+ERROR_POINT_G2_IS_NOT_ON_CURVE = "errBLS12381G2PointIsNotOnCurve"
+# msg : "g1 point is not on correct subgroup"
+ERROR_POINT_G1_SUBGROUP = "errBLS12381G1PointSubgroup"
+# msg : "g2 point is not on correct subgroup"
+ERROR_POINT_G2_SUBGROUP = "errBLS12381G2PointSubgroup"
 
-#
-'''
-
-Utilities
-
-'''
+# Utilities
 
 
 # given list of strings ["a", "b", "c"] returns "a" + "b" + "c"
@@ -90,7 +179,7 @@ def concat_list(entries):
   return res
 
 
-# encode 32 bytes scalar
+# encode scalar into 32 bytes
 def encode_scalar(e):
   return str("{0:0{1}x}".format(e, 64))
 
@@ -119,11 +208,6 @@ def bad_encode_field_element_short(fe):
   return padded.format(fe, 126)
 
 
-# # encodes field element violating zero top bytes (top 16 bytes must be zeros)
-# def bad_encode_field_element_top_bytes(fe):
-#   return "{2:0{3}x}{0:0{1}x}".format(10, 96, 1, 32)
-
-
 # encodes field element violating zero top bytes (top 16 bytes must be zeros)
 def bad_encode_field_element_top_bytes(fe):
   padded = "{2:0{3}x}{0:0{1}x}"
@@ -147,31 +231,31 @@ def encode_g1_point(point):
 
 
 # encodes g1 point into larger byte string than expected
-def bad_encode_g1_point_large(point):
-  x = encode_field_element(point[0])
-  y = bad_encode_field_element_large(point[1])
+def bad_encode_g1_point_large():
+  x = encode_field_element(G1[0])
+  y = bad_encode_field_element_large(G1[1])
   return [x, y]
 
 
 # encodes g1 point into shorter byte string than expected
-def bad_encode_g1_point_short(point):
-  x = encode_field_element(point[0])
-  y = bad_encode_field_element_short(point[1])
+def bad_encode_g1_point_short():
+  x = encode_field_element(G1[0])
+  y = bad_encode_field_element_short(G1[1])
   return [x, y]
 
 
 # encodes g1 point with invalid field element
 # note that this migth also violate the curve equation
 def bad_encode_g1_point_invalid_field_element():
-  x = ZERO64
+  x = encode_field_element(G1[0])
   y = bad_encode_invalid_field_element()
   return [x, y]
 
 
 # encodes g1 point violating field element zero top bytes
-def bad_encode_g1_point_top_bytes(point):
-  x = encode_field_element(point[0])
-  y = bad_encode_field_element_top_bytes(point[1])
+def bad_encode_g1_point_top_bytes():
+  x = encode_field_element(G1[0])
+  y = bad_encode_field_element_top_bytes(G1[1])
   return [x, y]
 
 
@@ -181,23 +265,23 @@ def encode_g1_point_scalar_pair(p, e):
 
 
 # encodes g1 point and scalar value pair into shorher byte string than expected
-def bad_encode_g1_point_scalar_pair_short(p, e):
-  return bad_encode_g1_point_short(p) + [encode_scalar(e)]
+def bad_encode_g1_point_scalar_pair_short():
+  return bad_encode_g1_point_short() + [encode_scalar(7)]
 
 
 # encodes g1 point and scalar value pair into larger byte string than expected
-def bad_encode_g1_point_scalar_pair_large(p, e):
-  return bad_encode_g1_point_large(p) + [encode_scalar(e)]
+def bad_encode_g1_point_scalar_pair_large():
+  return bad_encode_g1_point_large() + [encode_scalar(7)]
 
 
 # encodes g1 point and scalar value pair violating zero top bytes of a field element
-def bad_encode_g1_point_scalar_pair_top_bytes(p, e):
-  return bad_encode_g1_point_top_bytes(p) + [encode_scalar(e)]
+def bad_encode_g1_point_scalar_pair_top_bytes():
+  return bad_encode_g1_point_top_bytes() + [encode_scalar(7)]
 
 
 # encodes g1 point and scalar value pair with invalid field element
-def bad_encode_g1_point_scalar_pair_invalid_field_element(e):
-  return bad_encode_g1_point_invalid_field_element() + [encode_scalar(e)]
+def bad_encode_g1_point_scalar_pair_invalid_field_element():
+  return bad_encode_g1_point_invalid_field_element() + [encode_scalar(7)]
 
 
 # encodes a g1 point that does not satisfy curve equation
@@ -217,38 +301,38 @@ def encode_g2_point(point):
 
 
 # encodes g2 point into larger byte string than expected
-def bad_encode_g2_point_large(point):
-  x0 = encode_field_element(point[0].coeffs[1])
-  x1 = encode_field_element(point[0].coeffs[0])
-  y0 = encode_field_element(point[1].coeffs[1])
-  y1 = bad_encode_field_element_large(point[1].coeffs[0])
+def bad_encode_g2_point_large():
+  x0 = encode_field_element(G2[0].coeffs[1])
+  x1 = encode_field_element(G2[0].coeffs[0])
+  y0 = encode_field_element(G2[1].coeffs[1])
+  y1 = bad_encode_field_element_large(G2[1].coeffs[0])
   return [x0, x1, y0, y1]
 
 
 # encodes g2 point into shorter byte string than expected
-def bad_encode_g2_point_short(point):
-  x0 = encode_field_element(point[0].coeffs[1])
-  x1 = encode_field_element(point[0].coeffs[0])
-  y0 = encode_field_element(point[1].coeffs[1])
-  y1 = bad_encode_field_element_short(point[1].coeffs[0])
+def bad_encode_g2_point_short():
+  x0 = encode_field_element(G2[0].coeffs[1])
+  x1 = encode_field_element(G2[0].coeffs[0])
+  y0 = encode_field_element(G2[1].coeffs[1])
+  y1 = bad_encode_field_element_short(G2[1].coeffs[0])
   return [x0, x1, y0, y1]
 
 
 # encodes g2 point violating field element zero top bytes
-def bad_encode_g2_point_invalid_field_element(point):
-  x0 = encode_field_element(point[0].coeffs[1])
-  x1 = encode_field_element(point[0].coeffs[0])
-  y0 = encode_field_element(point[1].coeffs[1])
+def bad_encode_g2_point_invalid_field_element():
+  x0 = encode_field_element(G2[0].coeffs[1])
+  x1 = encode_field_element(G2[0].coeffs[0])
+  y0 = encode_field_element(G2[1].coeffs[1])
   y1 = bad_encode_invalid_field_element()
   return [x0, x1, y0, y1]
 
 
 # encodes g2 point violating field element zero top bytes
-def bad_encode_g2_point_top_bytes(point):
-  x0 = encode_field_element(point[0].coeffs[1])
-  x1 = encode_field_element(point[0].coeffs[0])
-  y0 = encode_field_element(point[1].coeffs[1])
-  y1 = bad_encode_field_element_top_bytes(point[1].coeffs[0])
+def bad_encode_g2_point_top_bytes():
+  x0 = encode_field_element(G2[0].coeffs[1])
+  x1 = encode_field_element(G2[0].coeffs[0])
+  y0 = encode_field_element(G2[1].coeffs[1])
+  y1 = bad_encode_field_element_top_bytes(G2[1].coeffs[0])
   return [x0, x1, y0, y1]
 
 
@@ -258,23 +342,23 @@ def encode_g2_point_scalar_pair(p, e):
 
 
 # encodes g2 point and scalar value pair into shorher byte string than expected
-def bad_encode_g2_point_scalar_pair_short(p, e):
-  return bad_encode_g2_point_short(p) + [encode_scalar(e)]
+def bad_encode_g2_point_scalar_pair_short():
+  return bad_encode_g2_point_short() + [encode_scalar(7)]
 
 
 # encodes g2 point and scalar value pair into larger byte string than expected
-def bad_encode_g2_point_scalar_pair_large(p, e):
-  return bad_encode_g2_point_large(p) + [encode_scalar(e)]
+def bad_encode_g2_point_scalar_pair_large():
+  return bad_encode_g2_point_large() + [encode_scalar(7)]
 
 
 # encodes g2 point and scalar value pair violating zero top bytes of a field element
-def bad_encode_g2_point_scalar_pair_top_bytes(p, e):
-  return bad_encode_g2_point_top_bytes(p) + [encode_scalar(e)]
+def bad_encode_g2_point_scalar_pair_top_bytes():
+  return bad_encode_g2_point_top_bytes() + [encode_scalar(7)]
 
 
 # encodes g2 point and scalar value pair with invalid field element
-def bad_encode_g1_point_scalar_pair_invalid_field_element(e):
-  return bad_encode_g2_point_invalid_field_element() + [encode_scalar(e)]
+def bad_encode_g2_point_scalar_pair_invalid_field_element():
+  return bad_encode_g2_point_invalid_field_element() + [encode_scalar(7)]
 
 
 # encodes a g2 point that does not satisfy curve equation
@@ -342,7 +426,7 @@ def gen_G1ADD_tests():
   expected = encode_g1_point(INFINITY1)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\nG1ADD\n---------\n")
+  print("\n---------\nG1ADD\n---------\n")
   for v in vectors:
     print(v)
 
@@ -363,21 +447,21 @@ def gen_G1ADD_fail_tests():
   # 1
   # Short input
   name = "bls_g1add_short_input"
-  inputs = bad_encode_g1_point_short(G1) + encode_g1_point(G1)
+  inputs = bad_encode_g1_point_short() + encode_g1_point(G1)
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 2
   # Large input
   name = "bls_g1add_large_input"
-  inputs = bad_encode_g1_point_large(G1) + encode_g1_point(G1)
+  inputs = bad_encode_g1_point_large() + encode_g1_point(G1)
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
   # Violate top bytes
   name = "bls_g1add_violate_top_bytes"
-  inputs = bad_encode_g1_point_top_bytes(G1) + encode_g1_point(G1)
+  inputs = bad_encode_g1_point_top_bytes() + encode_g1_point(G1)
   error = ERROR_FIELD_ELEMENT_TOP_BYTES
   vectors.append(make_fail_vector(inputs, error, name))
 
@@ -392,10 +476,10 @@ def gen_G1ADD_fail_tests():
   # Point is not on curve
   name = "bls_g1add_point_not_on_curve"
   inputs = encode_g1_point_not_on_curve() + encode_g1_point(G1)
-  error = POINT_G1_IS_NOT_ON_CURVE
+  error = ERROR_POINT_G1_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("---------\nG1ADD Failure\n---------\n")
+  print("\n---------\nG1ADD Failure\n---------\n")
   for v in vectors:
     print(v)
 
@@ -444,7 +528,7 @@ def gen_G1MUL_tests():
   expected = encode_g1_point(r)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\nG1MUL\n---------\n")
+  print("\n---------\nG1MUL\n---------\n")
   for v in vectors:
     print(v)
 
@@ -465,28 +549,28 @@ def gen_G1MUL_fail_tests():
   # 1
   # Short input
   name = "bls_g1mul_short_input"
-  inputs = bad_encode_g1_point_scalar_pair_short(G1, 1)
+  inputs = bad_encode_g1_point_scalar_pair_short()
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 2
   # Large input
   name = "bls_g1mul_large_input"
-  inputs = bad_encode_g1_point_scalar_pair_large(G1, 1)
+  inputs = bad_encode_g1_point_scalar_pair_large()
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
   # Violate top bytes
   name = "bls_g1mul_violate_top_bytes"
-  inputs = bad_encode_g1_point_scalar_pair_top_bytes(G1, 1)
+  inputs = bad_encode_g1_point_scalar_pair_top_bytes()
   error = ERROR_FIELD_ELEMENT_TOP_BYTES
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
   # Invalid field element
   name = "bls_g1mul_invalid_field_element"
-  inputs = bad_encode_g1_point_invalid_field_element()
+  inputs = bad_encode_g1_point_scalar_pair_invalid_field_element()
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
@@ -494,10 +578,10 @@ def gen_G1MUL_fail_tests():
   # Point is not on curve
   name = "bls_g1mul_point_not_on_curve"
   inputs = encode_g1_point_scalar_pair(g1_point_is_not_on_curve(), 1)
-  error = POINT_G1_IS_NOT_ON_CURVE
+  error = ERROR_POINT_G1_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("---------\nG1MUL Failure\n---------\n")
+  print("\n---------\nG1MUL Failure\n---------\n")
   for v in vectors:
     print(v)
 
@@ -550,7 +634,7 @@ def gen_G1MULTIEXP_tests():
   expected = encode_g1_point(acc_result)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\nG1MULTIEXP\n---------\n")
+  print("\n---------\nG1MULTIEXP\n---------\n")
   for v in vectors:
     print(v)
 
@@ -571,28 +655,28 @@ def gen_G1MULTIEXP_fail_tests():
   # 1
   # Short input
   name = "bls_g1multiexp_short_input"
-  inputs = bad_encode_g1_point_scalar_pair_short(G1, 1)
+  inputs = bad_encode_g1_point_scalar_pair_short()
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 2
   # Large input
   name = "bls_g1multiexp_large_input"
-  inputs = bad_encode_g1_point_scalar_pair_large(G1, 1)
+  inputs = bad_encode_g1_point_scalar_pair_large()
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
   # Invalid field element
   name = "bls_g1multiexp_invalid_field_element"
-  inputs = bad_encode_g1_point_invalid_field_element()
+  inputs = bad_encode_g1_point_scalar_pair_invalid_field_element()
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
   # Violate top bytes
   name = "bls_g1multiexp_violate_top_bytes"
-  inputs = bad_encode_g1_point_scalar_pair_top_bytes(G1, 1)
+  inputs = bad_encode_g1_point_scalar_pair_top_bytes()
   error = ERROR_FIELD_ELEMENT_TOP_BYTES
   vectors.append(make_fail_vector(inputs, error, name))
 
@@ -600,10 +684,10 @@ def gen_G1MULTIEXP_fail_tests():
   # Point is not on curve
   name = "bls_g1multiexp_point_not_on_curve"
   inputs = encode_g1_point_scalar_pair(g1_point_is_not_on_curve(), 1)
-  error = POINT_G1_IS_NOT_ON_CURVE
+  error = ERROR_POINT_G1_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("---------\nG1MULTIEXP Failure\n---------\n")
+  print("\n---------\nG1MULTIEXP Failure\n---------\n")
   for v in vectors:
     print(v)
 
@@ -648,7 +732,7 @@ def gen_G2ADD_tests():
   expected = encode_g2_point(INFINITY2)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\nG2ADD\n---------\n")
+  print("\n---------\nG2ADD\n---------\n")
   for v in vectors:
     print(v)
 
@@ -669,21 +753,21 @@ def gen_G2ADD_fail_tests():
   # 1
   # Short input
   name = "bls_g2add_short_input"
-  inputs = bad_encode_g2_point_short(G2) + encode_g2_point(G2)
+  inputs = bad_encode_g2_point_short() + encode_g2_point(G2)
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 2
   # Large input
   name = "bls_g2add_large_input"
-  inputs = bad_encode_g2_point_large(G2) + encode_g2_point(G2)
+  inputs = bad_encode_g2_point_large() + encode_g2_point(G2)
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
   # Violate top bytes
   name = "bls_g2add_violate_top_bytes"
-  inputs = bad_encode_g2_point_top_bytes(G2) + encode_g2_point(G2)
+  inputs = bad_encode_g2_point_top_bytes() + encode_g2_point(G2)
   error = ERROR_FIELD_ELEMENT_TOP_BYTES
   vectors.append(make_fail_vector(inputs, error, name))
 
@@ -698,10 +782,10 @@ def gen_G2ADD_fail_tests():
   # Point is not on curve
   name = "bls_g2add_point_not_on_curve"
   inputs = encode_g2_point_not_on_curve() + encode_g2_point(G2)
-  error = POINT_G2_IS_NOT_ON_CURVE
+  error = ERROR_POINT_G2_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("---------\nG2ADD Failure\n---------\n")
+  print("\n---------\nG2ADD Failure\n---------\n")
   for v in vectors:
     print(v)
 
@@ -750,7 +834,7 @@ def gen_G2MUL_tests():
   expected = encode_g2_point(r)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\nG2MUL\n---------\n")
+  print("\n---------\nG2MUL\n---------\n")
   for v in vectors:
     print(v)
 
@@ -771,28 +855,28 @@ def gen_G2MUL_fail_tests():
   # 1
   # Short input
   name = "bls_g2mul_short_input"
-  inputs = bad_encode_g2_point_scalar_pair_short(G2, 1)
+  inputs = bad_encode_g2_point_scalar_pair_short()
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 2
   # Large input
   name = "bls_g2mul_large_input"
-  inputs = bad_encode_g2_point_scalar_pair_large(G2, 1)
+  inputs = bad_encode_g2_point_scalar_pair_large()
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
   # Violate top bytes
   name = "bls_g2mul_violate_top_bytes"
-  inputs = bad_encode_g2_point_scalar_pair_top_bytes(G2, 1)
+  inputs = bad_encode_g2_point_scalar_pair_top_bytes()
   error = ERROR_FIELD_ELEMENT_TOP_BYTES
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
   # Invalid field element
   name = "bls_g2mul_invalid_field_element"
-  inputs = bad_encode_g2_point_invalid_field_element()
+  inputs = bad_encode_g2_point_scalar_pair_invalid_field_element()
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
@@ -800,10 +884,10 @@ def gen_G2MUL_fail_tests():
   # Point is not on curve
   name = "bls_g2mul_point_not_on_curve"
   inputs = encode_g2_point_scalar_pair(g2_point_is_not_on_curve(), 1)
-  error = POINT_G2_IS_NOT_ON_CURVE
+  error = ERROR_POINT_G2_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("---------\nG2MUL Failure\n---------\n")
+  print("\n---------\nG2MUL Failure\n---------\n")
   for v in vectors:
     print(v)
 
@@ -856,7 +940,7 @@ def gen_G2MULTIEXP_tests():
   expected = encode_g2_point(acc_result)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\nG2MULTIEXP\n---------\n")
+  print("\n---------\nG2MULTIEXP\n---------\n")
   for v in vectors:
     print(v)
 
@@ -874,31 +958,31 @@ def gen_G2MULTIEXP_fail_tests():
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
-  # 1
+  # 2
   # Short input
   name = "bls_g2multiexp_short_input"
-  inputs = bad_encode_g2_point_scalar_pair_short(G2, 1)
-  error = ERROR_INVALID_INPUT_LENGHT
-  vectors.append(make_fail_vector(inputs, error, name))
-
-  # 2
-  # Large input
-  name = "bls_g2multiexp_large_input"
-  inputs = bad_encode_g2_point_scalar_pair_large(G2, 1)
+  inputs = bad_encode_g2_point_scalar_pair_short()
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
-  # Violate top bytes
-  name = "bls_g2multiexp_violate_top_bytes"
-  inputs = bad_encode_g2_point_scalar_pair_top_bytes(G2, 1)
-  error = ERROR_FIELD_ELEMENT_TOP_BYTES
+  # Large input
+  name = "bls_g2multiexp_large_input"
+  inputs = bad_encode_g2_point_scalar_pair_large()
+  error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
+  # Violate top bytes
+  name = "bls_g2multiexp_violate_top_bytes"
+  inputs = bad_encode_g2_point_scalar_pair_top_bytes()
+  error = ERROR_FIELD_ELEMENT_TOP_BYTES
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 5
   # Invalid field element
   name = "bls_g2multiexp_invalid_field_element"
-  inputs = bad_encode_g2_point_scalar_pair_large()
+  inputs = bad_encode_g2_point_scalar_pair_invalid_field_element()
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
@@ -906,10 +990,10 @@ def gen_G2MULTIEXP_fail_tests():
   # Point is not on curve
   name = "bls_g2multiexp_point_not_on_curve"
   inputs = encode_g2_point_scalar_pair(g2_point_is_not_on_curve(), 1)
-  error = POINT_G2_IS_NOT_ON_CURVE
+  error = ERROR_POINT_G2_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("---------\nG2MULTIEXP Failure\n---------\n")
+  print("\n---------\nG2MULTIEXP Failure\n---------\n")
   for v in vectors:
     print(v)
 
@@ -968,7 +1052,7 @@ def gen_MAPPING_tests():
   ]
   vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\nMAPPING\n---------\n")
+  print("\n---------\nMAPPING\n---------\n")
   for v in vectors:
     print(v)
 
@@ -1001,13 +1085,13 @@ def gen_MAPPING_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
-  # Invalid field element 1
-  name = "bls_mapping_invalid_fq_element"
-  inputs = [ZERO128, bad_encode_invalid_field_element()]
+  # Invalid field element 2
+  name = "bls_mapping_invalid_fq2_element"
+  inputs = [ZERO64, bad_encode_invalid_field_element()]
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("---------\nMAPPING Failure\n---------\n")
+  print("\n---------\nMAPPING Failure\n---------\n")
   for v in vectors:
     print(v)
 
@@ -1026,12 +1110,8 @@ def gen_PAIRING_tests():
   a1 = multiply(G2, 3)
   b0 = multiply(G1, 6)
   b1 = neg(G2)
-  inputs = [
-      encode_g1_point(a0),
-      encode_g2_point(a1),
-      encode_g1_point(b0),
-      encode_g2_point(b1)
-  ]
+  inputs = encode_g1_point(a0) + encode_g2_point(a1) + encode_g1_point(
+      b0) + encode_g2_point(b1)
   expected = [ONE32]
   vectors.append(make_vector(inputs, expected, name))
 
@@ -1043,91 +1123,156 @@ def gen_PAIRING_tests():
   a1 = multiply(G2, 3)
   b0 = multiply(G1, 5)
   b1 = neg(G2)
-  inputs = [
-      encode_g1_point(a0),
-      encode_g2_point(a1),
-      encode_g1_point(b0),
-      encode_g2_point(b1)
-  ]
+  inputs = encode_g1_point(a0) + encode_g2_point(a1) + encode_g1_point(
+      b0) + encode_g2_point(b1)
   expected = [ZERO32]
   vectors.append(make_vector(inputs, expected, name))
 
-  # # 3
-  # # Ten pair checks true
-  # name = "bls_pairing_10paircheckstrue"
-  # N, s1, s2 = 10, 11, 21
-  # inputs = []
-  # acc_result = 0
-  # for _ in range(N - 1):
-  #   a1 = multiply(G1, s1)
-  #   a2 = multiply(G2, s2)
-  #   acc_result += s1 * s2
-  #   s1 += 1
-  #   s2 += 1
-  #   inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
-  # a1 = multiply(G1, acc_result)
-  # a2 = neg(G2)
-  # inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
-  # expected = [ONE32]
-  # vectors.append(make_vector(inputs, expected, name))
+  # 3
+  # Ten pair checks true
+  name = "bls_pairing_10paircheckstrue"
+  N, s1, s2 = 10, 11, 21
+  inputs = []
+  acc_result = 0
+  for _ in range(N - 1):
+    a1 = multiply(G1, s1)
+    a2 = multiply(G2, s2)
+    acc_result += s1 * s2
+    s1 += 1
+    s2 += 1
+    inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  a1 = multiply(G1, acc_result)
+  a2 = neg(G2)
+  inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  expected = [ONE32]
+  vectors.append(make_vector(inputs, expected, name))
 
-  # # 4
-  # # Ten pair checks false
-  # name = "bls_pairing_10paircheckstrue"
-  # N, s1, s2 = 10, 11, 21
-  # inputs = []
-  # acc_result = 0
-  # for _ in range(N - 1):
-  #   a1 = multiply(G1, s1)
-  #   a2 = multiply(G2, s2)
-  #   acc_result += s1 * s2
-  #   s1 += 1
-  #   s2 += 1
-  #   inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
-  # a1 = multiply(G1, acc_result)
-  # # same vector with #3 but omiting negation at the end
-  # a2 = G2 
-  # inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
-  # expected = [ZERO32]
-  # vectors.append(make_vector(inputs, expected, name))
+  # 4
+  # Ten pair checks false
+  name = "bls_pairing_10pairchecksfalse"
+  N, s1, s2 = 10, 11, 21
+  inputs = []
+  acc_result = 0
+  for _ in range(N - 1):
+    a1 = multiply(G1, s1)
+    a2 = multiply(G2, s2)
+    acc_result += s1 * s2
+    s1 += 1
+    s2 += 1
+    inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  a1 = multiply(G1, acc_result)
+  # same vector with #3 but omiting negation at the end
+  a2 = G2
+  inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  expected = [ZERO32]
+  vectors.append(make_vector(inputs, expected, name))
 
-  print("---------\PAIRING\n---------\n")
+  print("\n---------\nPAIRING\n---------\n")
   for v in vectors:
     print(v)
 
   return
 
+
+def gen_PAIRING_fail_test():
+  vectors = []
+
+  # 1
+  # Empty input
+  name = "bls_pairing_empty_input"
+  inputs = ['']
+  error = ERROR_INVALID_INPUT_LENGHT
+  vectors.append(make_fail_vector(inputs, error, name))
+
   # 2
-  # two pair checks false
+  # Extra data
+  name = "bls_pairing_extra_data"
+  inputs = encode_g1_point(G1) + encode_g2_point(G2) + encode_g1_point(
+      G1) + bad_encode_g2_point_large()
+  error = ERROR_INVALID_INPUT_LENGHT
+  vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
-  # ten pair checks true
+  # Invalid field element
+  name = "bls_pairing_invalid_field_element"
+  inputs = encode_g1_point(G1) + encode_g2_point(G2) + encode_g1_point(
+      G1) + bad_encode_g2_point_invalid_field_element()
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
-  # ten pair checks false
+  # Violate top bytes
+  name = "bls_pairing_top_bytes"
+  inputs = encode_g1_point(G1) + encode_g2_point(G2) + encode_g1_point(
+      G1) + bad_encode_g2_point_top_bytes()
+  error = ERROR_FIELD_ELEMENT_TOP_BYTES
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 5
+  # G1 Point is not on curve
+  name = "bls_pairing_g1_not_on_curve"
+  inputs = encode_g1_point(G1) + encode_g2_point(G2) + encode_g1_point(
+      g1_point_is_not_on_curve()) + encode_g2_point(G2)
+  error = ERROR_POINT_G1_IS_NOT_ON_CURVE
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 6
+  # G2 Point is not on curve
+  name = "bls_pairing_g2_not_on_curve"
+  inputs = encode_g1_point(G1) + encode_g2_point(G2) + encode_g1_point(
+      G1) + encode_g2_point(g2_point_is_not_on_curve())
+  error = ERROR_POINT_G2_IS_NOT_ON_CURVE
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 7
+  # G1 Point is not in correct subgroup
+  name = "bls_pairing_g1_not_in_correct_subgroup"
+  inputs = encode_g1_point(G1) + encode_g2_point(G2) + encode_g1_point(
+      g1_point_not_in_correct_subgroup()) + encode_g2_point(G2)
+  error = ERROR_POINT_G1_SUBGROUP
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 8
+  # G1 Point is not in correct subgroup
+  name = "bls_pairing_g2_not_in_correct_subgroup"
+  inputs = encode_g1_point(G1) + encode_g2_point(G2) + encode_g1_point(
+      G1) + encode_g2_point(g2_point_not_in_correct_subgroup())
+  error = ERROR_POINT_G2_SUBGROUP
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  print("\n---------\nPAIRING Failure\n---------\n")
+  for v in vectors:
+    print(v)
+
+  return
 
 
 def generate_vectors():
   print("eip2537 test vectors\n")
 
-  #   gen_G1ADD_tests()
-  #   gen_G1MUL_tests()
-  #   gen_G1MULTIEXP_tests()
+  # gen_G1ADD_tests()
+  # gen_G1ADD_fail_tests()
 
-  #   gen_G1ADD_fail_tests()
-  #   gen_G1MUL_fail_tests()
-  #   gen_G1MULTIEXP_fail_tests()
+  # gen_G1MUL_tests()
+  gen_G1MUL_fail_tests()
 
-  #   gen_G2ADD_tests()
-  #   gen_G2MUL_tests()
-  #   gen_G2MULTIEXP_tests()
+  # gen_G1MULTIEXP_tests()
+  # gen_G1MULTIEXP_fail_tests()
 
-  #   gen_G2ADD_fail_tests()
-  #   gen_G2MUL_fail_tests()
-  #   gen_G2MULTIEXP_fail_tests()
+  # gen_G2ADD_tests()
+  # gen_G2ADD_fail_tests()
+
+  # gen_G2MUL_tests()
+  # gen_G2MUL_fail_tests()
+
+  # gen_G2MULTIEXP_tests()
+  # gen_G2MULTIEXP_fail_tests()
+
+  # gen_PAIRING_tests()
+  # gen_PAIRING_fail_test()
 
   # gen_MAPPING_tests()
-  gen_PAIRING_tests()
+  # gen_MAPPING_fail_tests()
 
   return
 

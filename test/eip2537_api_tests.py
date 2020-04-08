@@ -6,12 +6,23 @@ mostly targeting a few expected results, parsing errors and error propagation.
 Prints of vectors follows Go syntax.
 '''
 
-from py_ecc.bls12_381 import G1, G2, add, multiply, FQ, FQ2, Z1 as INFINITY1, Z1 as INFINITY2, curve_order, is_on_curve, b, b2
+from py_ecc.bls12_381 import G1, G2, add, multiply, FQ, FQ2, Z1 as INFINITY1, Z1 as INFINITY2, curve_order, is_on_curve, b, b2, field_modulus
 
+# encoded g1 point at infility
 infinity_g1_encoded = 2 * ["{0:0{1}x}".format(0, 128)]
+
+# encoded g2 point at infility
 infinity_g2_encoded = 4 * ["{0:0{1}x}".format(0, 128)]
 
+# zeros
+ZERO48 = "{0:0{1}x}".format(0, 96)
+ZERO64 = "{0:0{1}x}".format(0, 128)
+ZERO96 = "{0:0{1}x}".format(0, 192)
+ZERO128 = "{0:0{1}x}".format(0, 256)
+ZERO256 = "{0:0{1}x}".format(0, 512)
 
+
+# return invalid g1 point
 def g1_point_is_not_on_curve():
   p = (
       FQ(1),
@@ -21,6 +32,7 @@ def g1_point_is_not_on_curve():
   return p
 
 
+# return invalid g2 point
 def g2_point_is_not_on_curve():
   p = (
       FQ2([1, 1]),
@@ -30,10 +42,21 @@ def g2_point_is_not_on_curve():
   return p
 
 
+# return invalid field element that larger than modulus
+def invalid_field_element():
+  return field_modulus + 1
+
+
+# return field order
+def modulus():
+  return field_modulus
+
+
 #
 '''
 
-Expected Errors
+Expected Errors 
+'errBLS12381_XXX_'
 
 '''
 
@@ -41,9 +64,11 @@ Expected Errors
 ERROR_INVALID_INPUT_LENGHT = "errBLS12381InvalidInputLength"
 # msg : "invalid field element top bytes"
 ERROR_FIELD_ELEMENT_TOP_BYTES = "errBLS12381InvalidFieldElementTopBytes"
-# msg : point is not on curve
+# msg : "invalid field element"
+ERROR_INVALID_FIELD_ELEMENT = "errBLS12381InvalidFieldElement"
+# msg : "point is not on curve"
 POINT_G1_IS_NOT_ON_CURVE = "errBLS12381G1PointIsNotOnCurve"
-# msg : point is not on curve
+# msg : "point is not on curve"
 POINT_G2_IS_NOT_ON_CURVE = "errBLS12381G2PointIsNotOnCurve"
 
 #
@@ -93,9 +118,22 @@ def bad_encode_field_element_short(fe):
   return padded.format(fe, 126)
 
 
+# # encodes field element violating zero top bytes (top 16 bytes must be zeros)
+# def bad_encode_field_element_top_bytes(fe):
+#   return "{2:0{3}x}{0:0{1}x}".format(10, 96, 1, 32)
+
+
 # encodes field element violating zero top bytes (top 16 bytes must be zeros)
 def bad_encode_field_element_top_bytes(fe):
-  return "{2:0{3}x}{0:0{1}x}".format(10, 96, 1, 32)
+  padded = "{2:0{3}x}{0:0{1}x}"
+  if fe is None:
+    return padded.format(0, 96, 1, 32)
+  return padded.format(fe.n, 96, 1, 32)
+
+
+# encodes an invalid field element (that is larger than modulus)
+def bad_encode_invalid_field_element():
+  return encode_field_element(invalid_field_element())
 
 
 # encodes 48 * 2 bytse g1 point to 256 bytes
@@ -118,6 +156,14 @@ def bad_encode_g1_point_large(point):
 def bad_encode_g1_point_short(point):
   x = encode_field_element(point[0])
   y = bad_encode_field_element_short(point[1])
+  return [x, y]
+
+
+# encodes g1 point with invalid field element
+# note that this migth also violate the curve equation
+def bad_encode_g1_point_invalid_field_element():
+  x = ZERO64
+  y = bad_encode_invalid_field_element()
   return [x, y]
 
 
@@ -146,6 +192,11 @@ def bad_encode_g1_point_scalar_pair_large(p, e):
 # encodes g1 point and scalar value pair violating zero top bytes of a field element
 def bad_encode_g1_point_scalar_pair_top_bytes(p, e):
   return bad_encode_g1_point_top_bytes(p) + [encode_scalar(e)]
+
+
+# encodes g1 point and scalar value pair with invalid field element
+def bad_encode_g1_point_scalar_pair_invalid_field_element(e):
+  return bad_encode_g1_point_invalid_field_element() + [encode_scalar(e)]
 
 
 # encodes a g1 point that does not satisfy curve equation
@@ -183,6 +234,15 @@ def bad_encode_g2_point_short(point):
 
 
 # encodes g2 point violating field element zero top bytes
+def bad_encode_g2_point_invalid_field_element(point):
+  x0 = encode_field_element(point[0].coeffs[1])
+  x1 = encode_field_element(point[0].coeffs[0])
+  y0 = encode_field_element(point[1].coeffs[1])
+  y1 = bad_encode_invalid_field_element()
+  return [x0, x1, y0, y1]
+
+
+# encodes g2 point violating field element zero top bytes
 def bad_encode_g2_point_top_bytes(point):
   x0 = encode_field_element(point[0].coeffs[1])
   x1 = encode_field_element(point[0].coeffs[0])
@@ -209,6 +269,11 @@ def bad_encode_g2_point_scalar_pair_large(p, e):
 # encodes g2 point and scalar value pair violating zero top bytes of a field element
 def bad_encode_g2_point_scalar_pair_top_bytes(p, e):
   return bad_encode_g2_point_top_bytes(p) + [encode_scalar(e)]
+
+
+# encodes g2 point and scalar value pair with invalid field element
+def bad_encode_g1_point_scalar_pair_invalid_field_element(e):
+  return bad_encode_g2_point_invalid_field_element() + [encode_scalar(e)]
 
 
 # encodes a g2 point that does not satisfy curve equation
@@ -311,6 +376,13 @@ def gen_G1ADD_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
+  # Invalid field element
+  name = "bls_g1add_invalid_field_element"
+  inputs = bad_encode_g1_point_invalid_field_element() + encode_g1_point(G1)
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 5
   # Point is not on curve
   name = "bls_g1add_point_not_on_curve"
   inputs = encode_g1_point_not_on_curve() + encode_g1_point(G1)
@@ -406,6 +478,13 @@ def gen_G1MUL_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
+  # Invalid field element
+  name = "bls_g1mul_invalid_field_element"
+  inputs = bad_encode_g1_point_invalid_field_element()
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 5
   # Point is not on curve
   name = "bls_g1mul_point_not_on_curve"
   inputs = encode_g1_point_scalar_pair(g1_point_is_not_on_curve(), 1)
@@ -498,13 +577,20 @@ def gen_G1MULTIEXP_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
+  # Invalid field element
+  name = "bls_g1multiexp_invalid_field_element"
+  inputs = bad_encode_g1_point_invalid_field_element()
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 4
   # Violate top bytes
   name = "bls_g1multiexp_violate_top_bytes"
   inputs = bad_encode_g1_point_scalar_pair_top_bytes(G1, 1)
   error = ERROR_FIELD_ELEMENT_TOP_BYTES
   vectors.append(make_fail_vector(inputs, error, name))
 
-  # 4
+  # 5
   # Point is not on curve
   name = "bls_g1multiexp_point_not_on_curve"
   inputs = encode_g1_point_scalar_pair(g1_point_is_not_on_curve(), 1)
@@ -596,6 +682,13 @@ def gen_G2ADD_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
+  # Invalid field element
+  name = "bls_g2add_invalid_field_element"
+  inputs = bad_encode_g2_point_invalid_field_element() + encode_g2_point(G2)
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 5
   # Point is not on curve
   name = "bls_g2add_point_not_on_curve"
   inputs = encode_g2_point_not_on_curve() + encode_g2_point(G2)
@@ -691,6 +784,13 @@ def gen_G2MUL_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
+  # Invalid field element
+  name = "bls_g2mul_invalid_field_element"
+  inputs = bad_encode_g2_point_invalid_field_element()
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 5
   # Point is not on curve
   name = "bls_g2mul_point_not_on_curve"
   inputs = encode_g2_point_scalar_pair(g2_point_is_not_on_curve(), 1)
@@ -790,6 +890,13 @@ def gen_G2MULTIEXP_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 4
+  # Invalid field element
+  name = "bls_g2multiexp_invalid_field_element"
+  inputs = bad_encode_g2_point_scalar_pair_large()
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 5
   # Point is not on curve
   name = "bls_g2multiexp_point_not_on_curve"
   inputs = encode_g2_point_scalar_pair(g2_point_is_not_on_curve(), 1)
@@ -812,7 +919,7 @@ def gen_MAPPING_tests():
 
   # 1
   # G1 expected
-  name = "bls_g1mapping_expected"
+  name = "bls_mapping_g1_expected"
   inputs = [
       encode_field_element(
           0x0ccb6bda9b602ab82aae21c0291623e2f639648a6ada1c76d8ffb664130fd18d98a2cc6160624148827a9726678e7cd4
@@ -830,7 +937,7 @@ def gen_MAPPING_tests():
 
   # 2
   # G2 expected
-  name = "bls_g2mapping_expected"
+  name = "bls_mapping_g2_expected"
   inputs = [
       encode_field_element(
           0x094376a68cdc8f64bd981d59bf762f9b2960df6b135f6e09ceada2fe8d0000bbf04023492796c09f8ef04016a2e8365f
@@ -862,30 +969,72 @@ def gen_MAPPING_tests():
   return
 
 
+# generates mapping to curve failed test vectors
+def gen_MAPPING_fail_tests():
+  vectors = []
+
+  # 1
+  # Empty input
+  name = "bls_mapping_empty_input"
+  inputs = ['']
+  error = ERROR_INVALID_INPUT_LENGHT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 2
+  # Unrecognized input (with length that is not equal to 64 or 128)
+  name = "bls_mapping_unrecognized_input"
+  inputs = ["1234"]
+  error = ERROR_INVALID_INPUT_LENGHT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 3
+  # Invalid field element 1
+  name = "bls_mapping_invalid_fq_element"
+  inputs = [bad_encode_invalid_field_element()]
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 4
+  # Invalid field element 1
+  name = "bls_mapping_invalid_fq_element"
+  inputs = [ZERO128, bad_encode_invalid_field_element()]
+  error = ERROR_INVALID_FIELD_ELEMENT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  print("---------\nMAPPING Failure\n---------\n")
+  for v in vectors:
+    print(v)
+
+  return
+
+
+# generates mapping to curve failed test vectors
+def gen_PAIRING_tests():
+  vectors = []
+
+
 def generate_vectors():
   print("eip2537 test vectors\n")
 
-#   gen_G1ADD_tests()
-#   gen_G1MUL_tests()
-#   gen_G1MULTIEXP_tests()
+  #   gen_G1ADD_tests()
+  #   gen_G1MUL_tests()
+  #   gen_G1MULTIEXP_tests()
 
-#   gen_G1ADD_fail_tests()
-#   gen_G1MUL_fail_tests()
-#   gen_G1MULTIEXP_fail_tests()
+  gen_G1ADD_fail_tests()
+  #   gen_G1MUL_fail_tests()
+  #   gen_G1MULTIEXP_fail_tests()
 
-#   gen_G2ADD_tests()
-#   gen_G2MUL_tests()
-#   gen_G2MULTIEXP_tests()
+  #   gen_G2ADD_tests()
+  #   gen_G2MUL_tests()
+  #   gen_G2MULTIEXP_tests()
 
-#   gen_G2ADD_fail_tests()
-#   gen_G2MUL_fail_tests()
-#   gen_G2MULTIEXP_fail_tests()
-  gen_MAPPING_tests()
+  #   gen_G2ADD_fail_tests()
+  #   gen_G2MUL_fail_tests()
+  #   gen_G2MULTIEXP_fail_tests()
+
+  # gen_MAPPING_tests()
 
   return
-  
+
 
 generate_vectors()
-
-
-print(a)

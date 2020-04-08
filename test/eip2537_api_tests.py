@@ -6,7 +6,7 @@ mostly targeting a few expected results, parsing errors and error propagation.
 Prints of vectors follows Go syntax.
 '''
 
-from py_ecc.bls12_381 import G1, G2, add, multiply, FQ, FQ2, Z1 as INFINITY1, Z1 as INFINITY2, curve_order, is_on_curve, b, b2, field_modulus
+from py_ecc.bls12_381 import G1, G2, add, multiply, FQ, FQ2, Z1 as INFINITY1, Z1 as INFINITY2, curve_order, is_on_curve, b, b2, field_modulus, neg
 
 # encoded g1 point at infility
 infinity_g1_encoded = 2 * ["{0:0{1}x}".format(0, 128)]
@@ -14,12 +14,13 @@ infinity_g1_encoded = 2 * ["{0:0{1}x}".format(0, 128)]
 # encoded g2 point at infility
 infinity_g2_encoded = 4 * ["{0:0{1}x}".format(0, 128)]
 
-# zeros
+ZERO32 = "{0:0{1}x}".format(0, 64)
 ZERO48 = "{0:0{1}x}".format(0, 96)
 ZERO64 = "{0:0{1}x}".format(0, 128)
 ZERO96 = "{0:0{1}x}".format(0, 192)
 ZERO128 = "{0:0{1}x}".format(0, 256)
 ZERO256 = "{0:0{1}x}".format(0, 512)
+ONE32 = "{0:0{1}x}".format(1, 32)
 
 
 # return invalid g1 point
@@ -279,6 +280,11 @@ def bad_encode_g1_point_scalar_pair_invalid_field_element(e):
 # encodes a g2 point that does not satisfy curve equation
 def encode_g2_point_not_on_curve():
   return encode_g2_point(g2_point_is_not_on_curve())
+
+
+# encodes g1 point and g2 point pair into 256 + 128 bytes
+def encode_g1_point_g2_point_pair(p1, p2):
+  return encode_g1_point(p1) + encode_g2_point(p2)
 
 
 def make_vector(inputs, expecteds, name):
@@ -911,7 +917,7 @@ def gen_G2MULTIEXP_fail_tests():
 
 
 # generates mapping to curve test vectors
-# vectors are taken from ietf hash to curve draft version
+# vectors are taken from ietf hash to curve draft version 6
 # G.9.2.  BLS12381G1_XMD:SHA-256_SSWU_NU_
 # https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-G.9.2
 def gen_MAPPING_tests():
@@ -1012,6 +1018,94 @@ def gen_MAPPING_fail_tests():
 def gen_PAIRING_tests():
   vectors = []
 
+  # 1
+  # Two pair checks true
+  # e(2 * G1, 3 * G2) == e(6 * G1, G2)
+  name = "bls_pairing_e(2*G1,3*G2)=e(6*G1,G2)"
+  a0 = multiply(G1, 2)
+  a1 = multiply(G2, 3)
+  b0 = multiply(G1, 6)
+  b1 = neg(G2)
+  inputs = [
+      encode_g1_point(a0),
+      encode_g2_point(a1),
+      encode_g1_point(b0),
+      encode_g2_point(b1)
+  ]
+  expected = [ONE32]
+  vectors.append(make_vector(inputs, expected, name))
+
+  # 2
+  # Two pair checks false
+  # e(2 * G1, 3 * G2) == e(5 * G1, G2)
+  name = "bls_pairing_e(2*G1,3*G2)=e(5*G1,G2)"
+  a0 = multiply(G1, 2)
+  a1 = multiply(G2, 3)
+  b0 = multiply(G1, 5)
+  b1 = neg(G2)
+  inputs = [
+      encode_g1_point(a0),
+      encode_g2_point(a1),
+      encode_g1_point(b0),
+      encode_g2_point(b1)
+  ]
+  expected = [ZERO32]
+  vectors.append(make_vector(inputs, expected, name))
+
+  # # 3
+  # # Ten pair checks true
+  # name = "bls_pairing_10paircheckstrue"
+  # N, s1, s2 = 10, 11, 21
+  # inputs = []
+  # acc_result = 0
+  # for _ in range(N - 1):
+  #   a1 = multiply(G1, s1)
+  #   a2 = multiply(G2, s2)
+  #   acc_result += s1 * s2
+  #   s1 += 1
+  #   s2 += 1
+  #   inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  # a1 = multiply(G1, acc_result)
+  # a2 = neg(G2)
+  # inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  # expected = [ONE32]
+  # vectors.append(make_vector(inputs, expected, name))
+
+  # # 4
+  # # Ten pair checks false
+  # name = "bls_pairing_10paircheckstrue"
+  # N, s1, s2 = 10, 11, 21
+  # inputs = []
+  # acc_result = 0
+  # for _ in range(N - 1):
+  #   a1 = multiply(G1, s1)
+  #   a2 = multiply(G2, s2)
+  #   acc_result += s1 * s2
+  #   s1 += 1
+  #   s2 += 1
+  #   inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  # a1 = multiply(G1, acc_result)
+  # # same vector with #3 but omiting negation at the end
+  # a2 = G2 
+  # inputs = inputs + encode_g1_point_g2_point_pair(a1, a2)
+  # expected = [ZERO32]
+  # vectors.append(make_vector(inputs, expected, name))
+
+  print("---------\PAIRING\n---------\n")
+  for v in vectors:
+    print(v)
+
+  return
+
+  # 2
+  # two pair checks false
+
+  # 3
+  # ten pair checks true
+
+  # 4
+  # ten pair checks false
+
 
 def generate_vectors():
   print("eip2537 test vectors\n")
@@ -1020,7 +1114,7 @@ def generate_vectors():
   #   gen_G1MUL_tests()
   #   gen_G1MULTIEXP_tests()
 
-  gen_G1ADD_fail_tests()
+  #   gen_G1ADD_fail_tests()
   #   gen_G1MUL_fail_tests()
   #   gen_G1MULTIEXP_fail_tests()
 
@@ -1033,6 +1127,7 @@ def generate_vectors():
   #   gen_G2MULTIEXP_fail_tests()
 
   # gen_MAPPING_tests()
+  gen_PAIRING_tests()
 
   return
 

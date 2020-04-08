@@ -99,6 +99,8 @@ github.com/kilic/bls12-381 v0.0.0-20200406010036-a9113b427317 h1:ricHn12fjKIIjzk
 github.com/kilic/bls12-381 v0.0.0-20200406010036-a9113b427317/go.mod h1:INznczsRc7ASFbWFUI9GnIvpi9s2FhenKE+24rdTmBQ=
 github.com/kilic/bls12-381 v0.0.0-20200406232222-c1caf88c127b h1:0XjJozkdonWbQ5OMfS9XxicigaW8z0KFZdUaQwdNmn4=
 github.com/kilic/bls12-381 v0.0.0-20200406232222-c1caf88c127b/go.mod h1:INznczsRc7ASFbWFUI9GnIvpi9s2FhenKE+24rdTmBQ=
+github.com/kilic/bls12-381 v0.0.0-20200408080454-2c81558b1f30 h1:DVzIbpGytxWATwr0vfBOrXH0EYaF7tn/DLt4xB5+CO4=
+github.com/kilic/bls12-381 v0.0.0-20200408080454-2c81558b1f30/go.mod h1:INznczsRc7ASFbWFUI9GnIvpi9s2FhenKE+24rdTmBQ=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515 h1:T+h1c/A9Gawja4Y9mFVWj2vyii2bbUNDw3kt9VxK2EY=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
 github.com/kr/pretty v0.1.0 h1:L/CwN0zerZDmRFUapSPitk6f+Q3+0za1rQkzVuMiMFI=

@@ -8,6 +8,7 @@ Prints of vectors follows Go syntax.
 
 from py_ecc.bls12_381 import G1, G2, add, multiply, FQ, FQ2, Z1 as INFINITY1, Z1 as INFINITY2, curve_order, is_on_curve, b, b2, field_modulus, neg
 from py_ecc.utils import prime_field_inv as inv
+import csv
 
 # encoded g1 point at infility
 infinity_g1_encoded = 2 * ["{0:0{1}x}".format(0, 128)]
@@ -293,46 +294,46 @@ def encode_g1_point_not_on_curve():
 def encode_g2_point(point):
   if point is INFINITY2:
     return infinity_g2_encoded
-  x0 = encode_field_element(point[0].coeffs[1])
-  x1 = encode_field_element(point[0].coeffs[0])
-  y0 = encode_field_element(point[1].coeffs[1])
-  y1 = encode_field_element(point[1].coeffs[0])
+  x0 = encode_field_element(point[0].coeffs[0])
+  x1 = encode_field_element(point[0].coeffs[1])
+  y0 = encode_field_element(point[1].coeffs[0])
+  y1 = encode_field_element(point[1].coeffs[1])
   return [x0, x1, y0, y1]
 
 
 # encodes g2 point into larger byte string than expected
 def bad_encode_g2_point_large():
-  x0 = encode_field_element(G2[0].coeffs[1])
-  x1 = encode_field_element(G2[0].coeffs[0])
-  y0 = encode_field_element(G2[1].coeffs[1])
-  y1 = bad_encode_field_element_large(G2[1].coeffs[0])
+  x0 = encode_field_element(G2[0].coeffs[0])
+  x1 = encode_field_element(G2[0].coeffs[1])
+  y0 = encode_field_element(G2[1].coeffs[0])
+  y1 = bad_encode_field_element_large(G2[1].coeffs[1])
   return [x0, x1, y0, y1]
 
 
 # encodes g2 point into shorter byte string than expected
 def bad_encode_g2_point_short():
-  x0 = encode_field_element(G2[0].coeffs[1])
-  x1 = encode_field_element(G2[0].coeffs[0])
-  y0 = encode_field_element(G2[1].coeffs[1])
-  y1 = bad_encode_field_element_short(G2[1].coeffs[0])
+  x0 = encode_field_element(G2[0].coeffs[0])
+  x1 = encode_field_element(G2[0].coeffs[1])
+  y0 = encode_field_element(G2[1].coeffs[0])
+  y1 = bad_encode_field_element_short(G2[1].coeffs[1])
   return [x0, x1, y0, y1]
 
 
 # encodes g2 point violating field element zero top bytes
 def bad_encode_g2_point_invalid_field_element():
-  x0 = encode_field_element(G2[0].coeffs[1])
-  x1 = encode_field_element(G2[0].coeffs[0])
-  y0 = encode_field_element(G2[1].coeffs[1])
+  x0 = encode_field_element(G2[0].coeffs[0])
+  x1 = encode_field_element(G2[0].coeffs[1])
+  y0 = encode_field_element(G2[1].coeffs[0])
   y1 = bad_encode_invalid_field_element()
   return [x0, x1, y0, y1]
 
 
 # encodes g2 point violating field element zero top bytes
 def bad_encode_g2_point_top_bytes():
-  x0 = encode_field_element(G2[0].coeffs[1])
-  x1 = encode_field_element(G2[0].coeffs[0])
-  y0 = encode_field_element(G2[1].coeffs[1])
-  y1 = bad_encode_field_element_top_bytes(G2[1].coeffs[0])
+  x0 = encode_field_element(G2[0].coeffs[0])
+  x1 = encode_field_element(G2[0].coeffs[1])
+  y0 = encode_field_element(G2[1].coeffs[0])
+  y1 = bad_encode_field_element_top_bytes(G2[1].coeffs[1])
   return [x0, x1, y0, y1]
 
 
@@ -374,6 +375,17 @@ def encode_g1_point_g2_point_pair(p1, p2):
 def make_vector(inputs, expecteds, name):
   return "{{\ninput:\n{},\nexpected:\n{},\nname: \"{}\",\n}},".format(
       concat_list(inputs), concat_list(expecteds), name)
+
+
+def make_matter_vectors(op_name):
+  vectors = []
+  with open("./matter/{}.csv".format(op_name), newline='') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for i, row in enumerate(reader):
+      name = "matter_{}_{}".format(op_name, i)
+      v = make_vector([row['input']], [row['result']], name)
+      vectors.append(v)
+  return vectors
 
 
 def make_fail_vector(inputs, error, name):
@@ -426,11 +438,13 @@ def gen_G1ADD_tests():
   expected = encode_g1_point(INFINITY1)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nG1ADD\n---------\n")
-  for v in vectors:
-    print(v)
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('g1_add')
 
-  return
+  generated = "\nvar blsG1ADDTests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
 
 
 # generates G1ADD failure tests
@@ -479,11 +493,10 @@ def gen_G1ADD_fail_tests():
   error = ERROR_POINT_G1_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nG1ADD Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsG1ADDFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 # generates G1MUL happy case tests
@@ -528,11 +541,13 @@ def gen_G1MUL_tests():
   expected = encode_g1_point(r)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nG1MUL\n---------\n")
-  for v in vectors:
-    print(v)
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('g1_mul')
 
-  return
+  generated = "\nvar blsG1MULTests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
 
 
 # generates G1MUL failure tests
@@ -581,11 +596,10 @@ def gen_G1MUL_fail_tests():
   error = ERROR_POINT_G1_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nG1MUL Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsG1MULFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 # generates G1MUL happy case tests
@@ -612,7 +626,6 @@ def gen_G1MULTIEXP_tests():
   for p, e in zip(bases, scalars):
     acc_result = add(multiply(p, e), acc_result)
     acc_input = acc_input + encode_g1_point_scalar_pair(p, e)
-  print(acc_input)
   inputs = acc_input
   expected = encode_g1_point(acc_result)
   vectors.append(make_vector(inputs, expected, name))
@@ -634,11 +647,13 @@ def gen_G1MULTIEXP_tests():
   expected = encode_g1_point(acc_result)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nG1MULTIEXP\n---------\n")
-  for v in vectors:
-    print(v)
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('g1_multiexp')
 
-  return
+  generated = "\nvar blsG1MULTIEXPTests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
 
 
 # generates G1MUL fail tests
@@ -687,11 +702,10 @@ def gen_G1MULTIEXP_fail_tests():
   error = ERROR_POINT_G1_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nG1MULTIEXP Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsG1MULTIEXPFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 # generates G2ADD happy case tests
@@ -732,11 +746,13 @@ def gen_G2ADD_tests():
   expected = encode_g2_point(INFINITY2)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nG2ADD\n---------\n")
-  for v in vectors:
-    print(v)
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('g2_add')
 
-  return
+  generated = "\nvar blsG2ADDTests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
 
 
 # generates G2ADD failure tests
@@ -785,11 +801,10 @@ def gen_G2ADD_fail_tests():
   error = ERROR_POINT_G2_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nG2ADD Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsG2ADDFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 # generates G2MUL happy case tests
@@ -834,11 +849,13 @@ def gen_G2MUL_tests():
   expected = encode_g2_point(r)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nG2MUL\n---------\n")
-  for v in vectors:
-    print(v)
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('g2_mul')
 
-  return
+  generated = "\nvar blsG2MULTests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
 
 
 # generates G2MUL failure tests
@@ -887,11 +904,10 @@ def gen_G2MUL_fail_tests():
   error = ERROR_POINT_G2_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nG2MUL Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsG2MULFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 # generates G2MULTIEXP happy case tests
@@ -940,11 +956,13 @@ def gen_G2MULTIEXP_tests():
   expected = encode_g2_point(acc_result)
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nG2MULTIEXP\n---------\n")
-  for v in vectors:
-    print(v)
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('g2_multiexp')
 
-  return
+  generated = "\nvar blsG2MULTIEXPTests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
 
 
 # generates G2MULTIEXP fail tests
@@ -993,11 +1011,10 @@ def gen_G2MULTIEXP_fail_tests():
   error = ERROR_POINT_G2_IS_NOT_ON_CURVE
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nG2MULTIEXP Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsG2MULTIEXPFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 # generates mapping to curve test vectors
@@ -1030,33 +1047,36 @@ def gen_MAPPING_tests():
   name = "bls_mapping_g2_expected"
   inputs = [
       encode_field_element(
-          0x094376a68cdc8f64bd981d59bf762f9b2960df6b135f6e09ceada2fe8d0000bbf04023492796c09f8ef04016a2e8365f
+          0x09367e3b485dda3925e82cc458e5009051281d3e442e94f9ef9feec44ee26375d6dc904dc1aa1f831f2aebd7b437ad12
       ),
       encode_field_element(
-          0x09367e3b485dda3925e82cc458e5009051281d3e442e94f9ef9feec44ee26375d6dc904dc1aa1f831f2aebd7b437ad12
+          0x094376a68cdc8f64bd981d59bf762f9b2960df6b135f6e09ceada2fe8d0000bbf04023492796c09f8ef04016a2e8365f
       ),
   ]
   expected = [
       encode_field_element(
-          0x04264ddf941f7c9ea5ad62027c72b194c6c3f62a92fcdb56ddc9de7990489af1f81c576e7f451c2cd416102253e040f0
-      ),
-      encode_field_element(
           0x170919c7845a9e623cef297e17484606a3eb2ae21ed8a21ff2b258861daefa3ac36955c0b374c6f4925868920d9c5f0b
       ),
       encode_field_element(
-          0x02d03d852629f70563e3a653ccc2e114439f551a2fd87c8136eb205b84e22c3f40507beccdcdc52c921b69a57968ec7c
+          0x04264ddf941f7c9ea5ad62027c72b194c6c3f62a92fcdb56ddc9de7990489af1f81c576e7f451c2cd416102253e040f0
       ),
       encode_field_element(
           0x0ce03abe6c55ff0640b2b303440d88bd1a2b0cbfe3274b2802c1f58b1085e4dd8795c9c4d9c166d2f033e3c438e7f8a9
       ),
+      encode_field_element(
+          0x02d03d852629f70563e3a653ccc2e114439f551a2fd87c8136eb205b84e22c3f40507beccdcdc52c921b69a57968ec7c
+      ),
   ]
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nMAPPING\n---------\n")
-  for v in vectors:
-    print(v)
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('fp_to_g1')
+  vectors = vectors + make_matter_vectors('fp2_to_g2')
 
-  return
+  generated = "\nvar blsMAPPINGTests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
 
 
 # generates mapping to curve failed test vectors
@@ -1091,11 +1111,10 @@ def gen_MAPPING_fail_tests():
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nMAPPING Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsMAPPINGFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 # generates mapping to curve failed test vectors
@@ -1167,14 +1186,13 @@ def gen_PAIRING_tests():
   expected = [ZERO32]
   vectors.append(make_vector(inputs, expected, name))
 
-  print("\n---------\nPAIRING\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsPAIRINGTests = []precompiledTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
-def gen_PAIRING_fail_test():
+def gen_PAIRING_fail_tests():
   vectors = []
 
   # 1
@@ -1240,41 +1258,34 @@ def gen_PAIRING_fail_test():
   error = ERROR_POINT_G2_SUBGROUP
   vectors.append(make_fail_vector(inputs, error, name))
 
-  print("\n---------\nPAIRING Failure\n---------\n")
-  for v in vectors:
-    print(v)
+  generated = "\nvar blsPAIRINGFailTests = []precompiledFailureTest{{\n{}\n}}".format(
+    "\n".join(vectors))
 
-  return
+  return generated
 
 
 def generate_vectors():
-  print("eip2537 test vectors\n")
 
-  gen_G1ADD_tests()
-  gen_G1ADD_fail_tests()
-
-  gen_G1MUL_tests()
-  gen_G1MUL_fail_tests()
-
-  gen_G1MULTIEXP_tests()
-  gen_G1MULTIEXP_fail_tests()
-
-  gen_G2ADD_tests()
-  gen_G2ADD_fail_tests()
-
-  gen_G2MUL_tests()
-  gen_G2MUL_fail_tests()
-
-  gen_G2MULTIEXP_tests()
-  gen_G2MULTIEXP_fail_tests()
-
-  gen_PAIRING_tests()
-  gen_PAIRING_fail_test()
-
-  gen_MAPPING_tests()
-  gen_MAPPING_fail_tests()
+  f = open("../vectors.go", "w+")
+  f.write("package eip2537\n")
+  f.write(gen_G1ADD_tests())
+  f.write(gen_G1MUL_tests())
+  f.write(gen_G1MULTIEXP_tests())
+  f.write(gen_G2ADD_tests())
+  f.write(gen_G2MUL_tests())
+  f.write(gen_G2MULTIEXP_tests())
+  f.write(gen_MAPPING_tests())
+  f.write(gen_PAIRING_tests())
+  f.write(gen_G1ADD_fail_tests())
+  f.write(gen_G1MUL_fail_tests())
+  f.write(gen_G1MULTIEXP_fail_tests())
+  f.write(gen_G2ADD_fail_tests())
+  f.write(gen_G2MUL_fail_tests())
+  f.write(gen_G2MULTIEXP_fail_tests())
+  f.write(gen_MAPPING_fail_tests())
+  f.write(gen_PAIRING_fail_tests())
+  f.close()
 
   return
-
 
 generate_vectors()

@@ -64,10 +64,10 @@ func decodeG2Point(g *bls12381.G2, in []byte) (*bls12381.PointG2, error) {
 	if err != nil {
 		return nil, err
 	}
-	copy(pointBytes[:48], x0Bytes)
-	copy(pointBytes[48:96], x1Bytes)
-	copy(pointBytes[96:144], y0Bytes)
-	copy(pointBytes[144:192], y1Bytes)
+	copy(pointBytes[:48], x1Bytes)
+	copy(pointBytes[48:96], x0Bytes)
+	copy(pointBytes[96:144], y1Bytes)
+	copy(pointBytes[144:192], y0Bytes)
 	return g.FromBytes(pointBytes)
 }
 
@@ -85,10 +85,10 @@ func encodeG2Point(g *bls12381.G2, p *bls12381.PointG2) []byte {
 	outRaw := g.ToBytes(p)
 	out := make([]byte, 256)
 	// Encode x
-	copy(out[16:16+48], outRaw[:48])
-	copy(out[80:80+48], outRaw[48:96])
+	copy(out[16:16+48], outRaw[48:96])
+	copy(out[80:80+48], outRaw[:48])
 	// Encode y
-	copy(out[144:144+48], outRaw[96:144])
-	copy(out[208:208+48], outRaw[144:])
+	copy(out[144:144+48], outRaw[144:])
+	copy(out[208:208+48], outRaw[96:144])
 	return out
 }

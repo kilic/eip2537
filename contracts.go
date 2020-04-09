@@ -401,12 +401,12 @@ func runBLS12381MAPPING(in []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		copy(fe[:48], c0)
+		copy(fe[48:], c0)
 		c1, err := decodeFieldElement(in[64:])
 		if err != nil {
 			return nil, err
 		}
-		copy(fe[48:], c1)
+		copy(fe[:48], c1)
 
 		// Initialize G2
 		g := bls12381.NewG2(nil)

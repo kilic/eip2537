@@ -1186,6 +1186,9 @@ def gen_PAIRING_tests():
   expected = [ZERO32]
   vectors.append(make_vector(inputs, expected, name))
 
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('pairing')
+
   generated = "\nvar blsPAIRINGTests = []precompiledTest{{\n{}\n}}".format(
     "\n".join(vectors))
 

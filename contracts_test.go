@@ -112,9 +112,15 @@ func TestPrecompiledBLS12381PAIRING(t *testing.T) {
 	}
 }
 
-func TestPrecompiledBLS12381MAPPING(t *testing.T) {
-	for _, test := range blsMAPPINGTests {
+func TestPrecompiledBLS12381MAPG1(t *testing.T) {
+	for _, test := range blsMAPG1Tests {
 		testPrecompiled("11", test, t)
+	}
+}
+
+func TestPrecompiledBLS12381MAPG2(t *testing.T) {
+	for _, test := range blsMAPG2Tests {
+		testPrecompiled("12", test, t)
 	}
 }
 
@@ -160,8 +166,14 @@ func TestPrecompiledBLS12381PAIRINGFail(t *testing.T) {
 	}
 }
 
-func TestPrecompiledBLS12381MAPPINGFail(t *testing.T) {
-	for _, test := range blsMAPPINGFailTests {
+func TestPrecompiledBLS12381MAPG1Fail(t *testing.T) {
+	for _, test := range blsMAPG1FailTests {
 		testPrecompiledFailure("11", test, t)
+	}
+}
+
+func TestPrecompiledBLS12381MAPG2Fail(t *testing.T) {
+	for _, test := range blsMAPG2FailTests {
+		testPrecompiledFailure("12", test, t)
 	}
 }

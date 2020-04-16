@@ -494,7 +494,7 @@ def gen_G1ADD_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   generated = "\nvar blsG1ADDFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
@@ -597,7 +597,7 @@ def gen_G1MUL_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   generated = "\nvar blsG1MULFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
@@ -703,7 +703,7 @@ def gen_G1MULTIEXP_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   generated = "\nvar blsG1MULTIEXPFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
@@ -802,7 +802,7 @@ def gen_G2ADD_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   generated = "\nvar blsG2ADDFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
@@ -905,7 +905,7 @@ def gen_G2MUL_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   generated = "\nvar blsG2MULFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
@@ -1012,21 +1012,19 @@ def gen_G2MULTIEXP_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   generated = "\nvar blsG2MULTIEXPFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
 
-# generates mapping to curve test vectors
-# vectors are taken from ietf hash to curve draft version 6
-# G.9.2.  BLS12381G1_XMD:SHA-256_SSWU_NU_
-# https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-G.9.2
-def gen_MAPPING_tests():
+# generates mapping fp to g1 test vectors
+def gen_MAPG1_tests():
   vectors = []
 
-  # 1
-  # G1 expected
-  name = "bls_mapping_g1_expected"
+  # vectors are taken from ietf hash to curve draft version 6
+  # G.9.2.  BLS12381G1_XMD:SHA-256_SSWU_NU_
+  # https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-G.9.2
+  name = "bls_mapg1_expected"
   inputs = [
       encode_field_element(
           0x0ccb6bda9b602ab82aae21c0291623e2f639648a6ada1c76d8ffb664130fd18d98a2cc6160624148827a9726678e7cd4
@@ -1042,9 +1040,23 @@ def gen_MAPPING_tests():
   ]
   vectors.append(make_vector(inputs, expected, name))
 
-  # 2
-  # G2 expected
-  name = "bls_mapping_g2_expected"
+  # append matter vectors
+  vectors = vectors + make_matter_vectors('fp_to_g1')
+
+  generated = "\nvar blsMAPG1Tests = []precompiledTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
+
+
+# generates mapping fp2 to g2 test vectors
+def gen_MAPG2_tests():
+  vectors = []
+
+  # vectors are taken from ietf hash to curve draft version 6
+  # G.9.2.  BLS12381G1_XMD:SHA-256_SSWU_NU_
+  # https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-G.9.2
+  name = "bls_mapg2_expected"
   inputs = [
       encode_field_element(
           0x09367e3b485dda3925e82cc458e5009051281d3e442e94f9ef9feec44ee26375d6dc904dc1aa1f831f2aebd7b437ad12
@@ -1070,49 +1082,86 @@ def gen_MAPPING_tests():
   vectors.append(make_vector(inputs, expected, name))
 
   # append matter vectors
-  vectors = vectors + make_matter_vectors('fp_to_g1')
   vectors = vectors + make_matter_vectors('fp2_to_g2')
 
-  generated = "\nvar blsMAPPINGTests = []precompiledTest{{\n{}\n}}".format(
+  generated = "\nvar blsMAPG2Tests = []precompiledTest{{\n{}\n}}".format(
       "\n".join(vectors))
 
   return generated
 
 
 # generates mapping to curve failed test vectors
-def gen_MAPPING_fail_tests():
+def gen_MAPG1_fail_tests():
   vectors = []
 
   # 1
   # Empty input
-  name = "bls_mapping_empty_input"
+  name = "bls_mapg1_empty_input"
   inputs = ['']
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 2
-  # Unrecognized input (with length that is not equal to 64 or 128)
-  name = "bls_mapping_unrecognized_input"
-  inputs = ["1234"]
+  # Short input
+  name = "bls_mapg1_short_input"
+  inputs = [ZERO64[2:]]
   error = ERROR_INVALID_INPUT_LENGHT
   vectors.append(make_fail_vector(inputs, error, name))
 
   # 3
-  # Invalid field element 1
-  name = "bls_mapping_invalid_fq_element"
+  # Violate top bytes
+  name = "bls_mapg1_top_bytes"
+  inputs = [bad_encode_field_element_top_bytes(None)]
+  error = ERROR_FIELD_ELEMENT_TOP_BYTES
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 4
+  # Invalid field element
+  name = "bls_mapg1_invalid_fq_element"
   inputs = [bad_encode_invalid_field_element()]
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
+  generated = "\nvar blsMAPG1FailTests = []precompiledFailureTest{{\n{}\n}}".format(
+      "\n".join(vectors))
+
+  return generated
+
+
+# generates mapping to curve failed test vectors
+def gen_MAPG2_fail_tests():
+  vectors = []
+
+  # 1
+  # Empty input
+  name = "bls_mapg2_empty_input"
+  inputs = ['']
+  error = ERROR_INVALID_INPUT_LENGHT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 2
+  # Short input
+  name = "bls_mapg2_short_input"
+  inputs = [ZERO64, ZERO64[2:]]
+  error = ERROR_INVALID_INPUT_LENGHT
+  vectors.append(make_fail_vector(inputs, error, name))
+
+  # 3
+  # Violate top bytes
+  name = "bls_mapg2_top_bytes"
+  inputs = [ZERO64, bad_encode_field_element_top_bytes(None)]
+  error = ERROR_FIELD_ELEMENT_TOP_BYTES
+  vectors.append(make_fail_vector(inputs, error, name))
+
   # 4
-  # Invalid field element 2
-  name = "bls_mapping_invalid_fq2_element"
+  # Invalid field element
+  name = "bls_mapg2_invalid_fq_element"
   inputs = [ZERO64, bad_encode_invalid_field_element()]
   error = ERROR_INVALID_FIELD_ELEMENT
   vectors.append(make_fail_vector(inputs, error, name))
 
-  generated = "\nvar blsMAPPINGFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+  generated = "\nvar blsMAPG2FailTests = []precompiledFailureTest{{\n{}\n}}".format(
+      "\n".join(vectors))
 
   return generated
 
@@ -1190,7 +1239,7 @@ def gen_PAIRING_tests():
   vectors = vectors + make_matter_vectors('pairing')
 
   generated = "\nvar blsPAIRINGTests = []precompiledTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
@@ -1262,14 +1311,14 @@ def gen_PAIRING_fail_tests():
   vectors.append(make_fail_vector(inputs, error, name))
 
   generated = "\nvar blsPAIRINGFailTests = []precompiledFailureTest{{\n{}\n}}".format(
-    "\n".join(vectors))
+      "\n".join(vectors))
 
   return generated
 
 
 def generate_vectors():
 
-  f = open("../vectors.go", "w+")
+  f = open("../vectors_test.go", "w+")
   f.write("package eip2537\n")
   f.write(gen_G1ADD_tests())
   f.write(gen_G1MUL_tests())
@@ -1277,18 +1326,22 @@ def generate_vectors():
   f.write(gen_G2ADD_tests())
   f.write(gen_G2MUL_tests())
   f.write(gen_G2MULTIEXP_tests())
-  f.write(gen_MAPPING_tests())
   f.write(gen_PAIRING_tests())
+  f.write(gen_MAPG1_tests())
+  f.write(gen_MAPG2_tests())
+
   f.write(gen_G1ADD_fail_tests())
   f.write(gen_G1MUL_fail_tests())
   f.write(gen_G1MULTIEXP_fail_tests())
   f.write(gen_G2ADD_fail_tests())
   f.write(gen_G2MUL_fail_tests())
   f.write(gen_G2MULTIEXP_fail_tests())
-  f.write(gen_MAPPING_fail_tests())
   f.write(gen_PAIRING_fail_tests())
+  f.write(gen_MAPG1_fail_tests())
+  f.write(gen_MAPG2_fail_tests())
   f.close()
 
   return
+
 
 generate_vectors()

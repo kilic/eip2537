@@ -20,7 +20,8 @@ var PrecompiledContractsBerlinOnly = map[common.Address]vm.PrecompiledContract{
 	common.BytesToAddress([]byte{0x0e}): &bls12381G2MUL{},
 	common.BytesToAddress([]byte{0x0f}): &bls12381G2MULTIEXP{},
 	common.BytesToAddress([]byte{0x10}): &bls12381PAIRING{},
-	common.BytesToAddress([]byte{0x11}): &bls12381MAPPING{},
+	common.BytesToAddress([]byte{0x11}): &bls12381MAPG1{},
+	common.BytesToAddress([]byte{0x12}): &bls12381MAPG2{},
 }
 
 type bls12381G1ADD struct{}
@@ -347,82 +348,87 @@ func runBLS381PAIRING(in []byte) ([]byte, error) {
 	return out, nil
 }
 
-type bls12381MAPPING struct{}
+type bls12381MAPG1 struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *bls12381MAPPING) RequiredGas(input []byte) uint64 {
-	if len(input) == 64 {
-		return BLS12381MAPPINGG1Gas
-	} else if len(input) == 128 {
-		return BLS12381MAPPINGG2Gas
-	}
-	// this case will cause error in run phase
-	return 0
+func (c *bls12381MAPG1) RequiredGas(input []byte) uint64 {
+	return BLS12381MAPPINGG1Gas
 }
 
-func (c *bls12381MAPPING) Run(input []byte) ([]byte, error) {
-	return runBLS12381MAPPING(input)
+func (c *bls12381MAPG1) Run(input []byte) ([]byte, error) {
+	return runBLS12381MAPG1(input)
 }
 
-// runBLS12381MAPPING implements EIP-2537 MAP_FIELD_TO_CURVE precompile logic.
-// > Field-to-curve call expects either `64` or `128` bytes an an input that is interpreted as a an element of the base field or a quadratic extension respectively.
-// > Output of this call is either `128` or `256` bytes and is a either G1 or G2 point form following respective encoding rules.
-func runBLS12381MAPPING(in []byte) ([]byte, error) {
+// runBLS12381MAPG1 implements EIP-2537 MAP_FP_TO_G1 precompile logic.
+// > Field-to-curve call expects `64` bytes an an input that is interpreted as a an element of the base field.
+// > Output of this call is `128` bytes and is G1 point following respective encoding rules.
+func runBLS12381MAPG1(in []byte) ([]byte, error) {
 
-	if len(in) == 64 {
-
-		// Do mapping to G1
-
-		// Decode input field element
-		fe, err := decodeFieldElement(in)
-		if err != nil {
-			return nil, err
-		}
-
-		// Initialize G1
-		g := bls12381.NewG1()
-
-		// Compute mapping
-		r, err := g.MapToPointSWU(fe)
-		if err != nil {
-			return nil, err
-		}
-
-		// Encode the point and return the result.
-		return encodeG1Point(g, r), nil
-
-	} else if len(in) == 128 {
-
-		// Do mapping to G2
-
-		// Decode input field element
-		fe := make([]byte, 96)
-		c0, err := decodeFieldElement(in[:64])
-		if err != nil {
-			return nil, err
-		}
-		copy(fe[48:], c0)
-		c1, err := decodeFieldElement(in[64:])
-		if err != nil {
-			return nil, err
-		}
-		copy(fe[:48], c1)
-
-		// Initialize G2
-		g := bls12381.NewG2(nil)
-
-		// Compute mapping
-		r, err := g.MapToPointSWU(fe)
-		if err != nil {
-			return nil, err
-		}
-
-		// Encode the point and return the result
-		return encodeG2Point(g, r), nil
-	} else {
-
-		// Unrecognized or null input size
-
+	if len(in) != 64 {
 		return nil, errBLS12381InvalidInputLength
 	}
+
+	// Decode input field element
+	fe, err := decodeFieldElement(in)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize G1
+	g := bls12381.NewG1()
+
+	// Compute mapping
+	r, err := g.MapToPointSWU(fe)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode the point and return the result.
+	return encodeG1Point(g, r), nil
+}
+
+type bls12381MAPG2 struct{}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *bls12381MAPG2) RequiredGas(input []byte) uint64 {
+	return BLS12381MAPPINGG2Gas
+}
+
+func (c *bls12381MAPG2) Run(input []byte) ([]byte, error) {
+	return runBLS12381MAPG2(input)
+}
+
+// runBLS12381MAPG2 implements EIP-2537 MAP_FP2_TO_G2 precompile logic.
+// > Field-to-curve call expects `128` bytes an an input that is interpreted as a an element of the quadratic extension field.
+// > Output of this call is `256` bytes and is G2 point following respective encoding rules.
+func runBLS12381MAPG2(in []byte) ([]byte, error) {
+
+	if len(in) != 128 {
+		return nil, errBLS12381InvalidInputLength
+	}
+
+	// Decode input field element
+	fe := make([]byte, 96)
+	c0, err := decodeFieldElement(in[:64])
+	if err != nil {
+		return nil, err
+	}
+	copy(fe[48:], c0)
+	c1, err := decodeFieldElement(in[64:])
+	if err != nil {
+		return nil, err
+	}
+	copy(fe[:48], c1)
+
+	// Initialize G2
+	g := bls12381.NewG2(nil)
+
+	// Compute mapping
+	r, err := g.MapToPointSWU(fe)
+	if err != nil {
+		return nil, err
+	}
+
+	// Encode the point and return the result.
+	return encodeG2Point(g, r), nil
 }

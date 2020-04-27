@@ -1020,26 +1020,7 @@ def gen_G2MULTIEXP_fail_tests():
 # generates mapping fp to g1 test vectors
 def gen_MAPG1_tests():
   vectors = []
-
-  # vectors are taken from ietf hash to curve draft version 6
-  # G.9.2.  BLS12381G1_XMD:SHA-256_SSWU_NU_
-  # https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-G.9.2
-  name = "bls_mapg1_expected"
-  inputs = [
-      encode_field_element(
-          0x0ccb6bda9b602ab82aae21c0291623e2f639648a6ada1c76d8ffb664130fd18d98a2cc6160624148827a9726678e7cd4
-      )
-  ]
-  expected = [
-      encode_field_element(
-          0x115281bd55a4103f31c8b12000d98149598b72e5da14e953277def263a24bc2e9fd8fa151df73ea3800f9c8cbb9b245c
-      ),
-      encode_field_element(
-          0x0796506faf9edbf1957ba8d667a079cab0d3a37e302e5132bd25665b66b26ea8556a0cfb92d6ae2c4890df0029b455ce
-      )
-  ]
-  vectors.append(make_vector(inputs, expected, name))
-
+  # name = "bls_mapg1_expected"
   # append matter vectors
   vectors = vectors + make_matter_vectors('fp_to_g1')
 
@@ -1052,35 +1033,7 @@ def gen_MAPG1_tests():
 # generates mapping fp2 to g2 test vectors
 def gen_MAPG2_tests():
   vectors = []
-
-  # vectors are taken from ietf hash to curve draft version 6
-  # G.9.2.  BLS12381G1_XMD:SHA-256_SSWU_NU_
-  # https://tools.ietf.org/html/draft-irtf-cfrg-hash-to-curve-06#appendix-G.9.2
-  name = "bls_mapg2_expected"
-  inputs = [
-      encode_field_element(
-          0x09367e3b485dda3925e82cc458e5009051281d3e442e94f9ef9feec44ee26375d6dc904dc1aa1f831f2aebd7b437ad12
-      ),
-      encode_field_element(
-          0x094376a68cdc8f64bd981d59bf762f9b2960df6b135f6e09ceada2fe8d0000bbf04023492796c09f8ef04016a2e8365f
-      ),
-  ]
-  expected = [
-      encode_field_element(
-          0x170919c7845a9e623cef297e17484606a3eb2ae21ed8a21ff2b258861daefa3ac36955c0b374c6f4925868920d9c5f0b
-      ),
-      encode_field_element(
-          0x04264ddf941f7c9ea5ad62027c72b194c6c3f62a92fcdb56ddc9de7990489af1f81c576e7f451c2cd416102253e040f0
-      ),
-      encode_field_element(
-          0x0ce03abe6c55ff0640b2b303440d88bd1a2b0cbfe3274b2802c1f58b1085e4dd8795c9c4d9c166d2f033e3c438e7f8a9
-      ),
-      encode_field_element(
-          0x02d03d852629f70563e3a653ccc2e114439f551a2fd87c8136eb205b84e22c3f40507beccdcdc52c921b69a57968ec7c
-      ),
-  ]
-  vectors.append(make_vector(inputs, expected, name))
-
+  # name = "bls_mapg2_expected"
   # append matter vectors
   vectors = vectors + make_matter_vectors('fp2_to_g2')
 

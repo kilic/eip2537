@@ -175,7 +175,7 @@ func runBLS12381G2ADD(in []byte) ([]byte, error) {
 	var p0, p1 *bls12381.PointG2
 
 	// Initialize G2
-	g := bls12381.NewG2(nil)
+	g := bls12381.NewG2()
 	r := g.New()
 
 	// Decode G2 point p_0
@@ -217,7 +217,7 @@ func runBLS12381G2MUL(in []byte) ([]byte, error) {
 	var p0 *bls12381.PointG2
 
 	// Initialize G2
-	g := bls12381.NewG2(nil)
+	g := bls12381.NewG2()
 
 	// Decode G2 point
 	if p0, err = decodeG2Point(g, in[:256]); err != nil {
@@ -259,7 +259,7 @@ func runBLSG2MULTIEXP(in []byte) ([]byte, error) {
 	scalars := make([]*big.Int, k)
 
 	// Initialize G2
-	g := bls12381.NewG2(nil)
+	g := bls12381.NewG2()
 
 	// Decode point scalar pairs
 	for i := 0; i < k; i++ {
@@ -378,7 +378,7 @@ func runBLS12381MAPG1(in []byte) ([]byte, error) {
 	g := bls12381.NewG1()
 
 	// Compute mapping
-	r, err := g.MapToPointSWU(fe)
+	r, err := g.MapToCurve(fe)
 	if err != nil {
 		return nil, err
 	}
@@ -421,10 +421,10 @@ func runBLS12381MAPG2(in []byte) ([]byte, error) {
 	copy(fe[:48], c1)
 
 	// Initialize G2
-	g := bls12381.NewG2(nil)
+	g := bls12381.NewG2()
 
 	// Compute mapping
-	r, err := g.MapToPointSWU(fe)
+	r, err := g.MapToCurve(fe)
 	if err != nil {
 		return nil, err
 	}

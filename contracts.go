@@ -110,7 +110,9 @@ type bls12381G1MULTIEXP struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G1MULTIEXP) RequiredGas(input []byte) uint64 {
-	return uint64(len(input)/160) * BLS12381G1MULTIEXPPerPairGas
+	k := uint64(len(input) / 160)
+	discount := BLS12381MULTIEXPDiscount[k]
+	return (k * BLS12381G2MULGas * discount) / 1000
 }
 
 func (c *bls12381G1MULTIEXP) Run(input []byte) ([]byte, error) {
@@ -239,7 +241,9 @@ type bls12381G2MULTIEXP struct{}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bls12381G2MULTIEXP) RequiredGas(input []byte) uint64 {
-	return uint64(len(input)/160) * BLS12381G2MULTIEXPPerPairGas
+	k := uint64(len(input) / 160)
+	discount := BLS12381MULTIEXPDiscount[k]
+	return (k * BLS12381G2MULGas * discount) / 1000
 }
 
 func (c *bls12381G2MULTIEXP) Run(input []byte) ([]byte, error) {
